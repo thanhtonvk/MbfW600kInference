@@ -584,9 +584,9 @@ class CameraApp(tk.Tk):
         self.mode = 'NONE'
         list_hoc_sinh = self.nguoi_dung_dal.get()
         list_checkin = self.checkin_dal.get()
-        list_id_checkin = [i.IdNguoiDung for i in list_checkin]
+        list_id_checkin = [str(i.IdNguoiDung).strip() for i in list_checkin]
         for hocSinh in list_hoc_sinh:
-            if hocSinh.Id not in list_id_checkin:
+            if str(hocSinh.Id).strip() not in list_id_checkin:
                 text = f'Bạn: {hocSinh.HoTen} ID: {hocSinh.Id} vắng'
                 self.send_telegram_message(text)
         
@@ -597,9 +597,9 @@ class CameraApp(tk.Tk):
         self.mode = 'NONE'
         list_hoc_sinh = self.nguoi_dung_dal.get()
         list_checkin = self.checkin_dal.get()
-        id_chua_checkout = [i.IdNguoiDung for i in list_checkin if i.GioCheckout == '']
+        id_chua_checkout = [str(i.IdNguoiDung).strip() for i in list_checkin if i.GioCheckout == '']
         for hocSinh in list_hoc_sinh:
-            if hocSinh.Id in id_chua_checkout:
+            if str(hocSinh.Id).strip() in id_chua_checkout:
                 text = f'Bạn: {hocSinh.HoTen} ID: {hocSinh.Id} chưa checkout'
                 self.send_telegram_message(text)
 

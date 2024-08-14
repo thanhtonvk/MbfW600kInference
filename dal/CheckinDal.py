@@ -43,7 +43,7 @@ class CheckinDal:
 
     def checkIn(self, checkIn: Checkin):
         list_checkin = self.get()
-        exist = [i for i in list_checkin if i.IdNguoiDung == checkIn.IdNguoiDung]
+        exist = [i for i in list_checkin if str(i.IdNguoiDung).strip() == str(checkIn.IdNguoiDung).strip()]
         if len(exist) == 0:
             currentDate = str(datetime.datetime.now()).split(' ')
             ngayHienTai = currentDate[0]
@@ -65,7 +65,7 @@ class CheckinDal:
 
     def checkOut(self, idNguoiDung):
         list_checkin = self.get()
-        exist = [i for i in list_checkin if i.IdNguoiDung == idNguoiDung and i.GioCheckout=='']
+        exist = [i for i in list_checkin if str(i.IdNguoiDung).strip() == str(idNguoiDung).strip() and i.GioCheckout=='']
         if len(exist)>0:
             currentDate = str(datetime.datetime.now()).split(' ')
             gioHienTai = currentDate[1]
