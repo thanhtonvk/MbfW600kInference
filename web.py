@@ -5,7 +5,6 @@ import cv2
 from dal.NguoiDungDal import NguoiDungDal
 from modules.face_detection import FaceDetection
 from modules.face_recognition import FaceRecognition
-import pathlib
 app = Flask(__name__)
 
 NguoiDungDal = NguoiDungDal()
@@ -20,7 +19,7 @@ def them_sv():
     ho_ten = request.form['ho_ten']
     id = request.form['id']
     f = request.files['file']
-    save_path = f'static/faces/temp/image.png'
+    save_path = f'static/faces/image.png'
     try:
         f.save(save_path)
     except:
@@ -29,7 +28,7 @@ def them_sv():
     image = cv2.imread(save_path)
     result = faceDetector.save_face(id,image)
     os.remove(save_path)
-    if result >0:
+    if result>0:
         image_face = cv2.imread(f"static/faces/{id}/face.png")
         emb = faceRecognition.get_embed(image_face)
         NguoiDungDal.insert(ho_ten, id,emb)
