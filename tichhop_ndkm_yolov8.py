@@ -376,6 +376,12 @@ class CameraApp(tk.Tk):
                 ret, frame = self.cap_left.read()
             if ret:
                 frame = cv2.resize(frame, (680, 480))
+                if self.mode == "START_CHECKIN":
+                    cv2.putText(frame, f"DANG CHECKIN",
+                                    (320, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
+                if self.mode == "START_CHECKOUT":
+                    cv2.putText(frame, f"DANG CHECKOUT",
+                                    (320, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
                 predict = self.face_detector.detect(frame)
                 boxes = predict['boxes']
                 faces = predict['faces']
@@ -388,6 +394,13 @@ class CameraApp(tk.Tk):
                     if nguoi_dung is not None:
                         cv2.putText(frame, f"ID:{nguoi_dung.Id} {unidecode.unidecode(nguoi_dung.HoTen)}",
                                     (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
+                        if self.mode == 'START_CHECKIN':
+                            checkIn = Checkin()
+                            checkIn.IdNguoiDung = nguoi_dung.Id
+                            checkIn.HoTen = nguoi_dung.HoTen
+                            self.checkin_dal.checkIn(checkIn)
+                        if self.mode == 'START_CHECKOUT':
+                            self.checkin_dal.checkOut(nguoi_dung.Id)
                 self.display_frame_thread_safe(
                     frame, self.canvas_left, self.points_left, self.polygons_left)
 
