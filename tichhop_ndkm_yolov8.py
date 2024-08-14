@@ -19,7 +19,7 @@ from PIL import Image, ImageTk
 from objects.Checkin import Checkin
 from dal.CheckinDal import CheckinDal
 from objects.NguoiDung import NguoiDung
-
+import threading
 # Initialize pygame for sound playback
 pygame.init()
 pygame.mixer.init()
@@ -317,12 +317,15 @@ class CameraApp(tk.Tk):
         self.points_right = []
 
     def process_left(self):
+        count = 0
+        count_cannot_detect = 0
         self.nguoi_dungs = self.nguoi_dung_dal.get()
         self.cap_left = cv2.VideoCapture(self.video_source_left)
         while self.running_left:
             with self.lock_left:
                 ret, frame = self.cap_left.read()
             if ret:
+                count+=1
                 frame = cv2.resize(frame, (680, 480))
                 if self.mode == "START_CHECKIN":
                     cv2.putText(frame, f"DANG CHECKIN",
@@ -352,6 +355,16 @@ class CameraApp(tk.Tk):
                             self.checkin_dal.checkIn(checkIn)
                         if self.mode == 'START_CHECKOUT':
                             self.checkin_dal.checkOut(nguoi_dung.Id)
+                    else:
+                        cv2.putText(frame, f"QUAY MAT VAO CAMERA",
+                                    (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
+                        if self.mode == 'START_CHECKIN' or self.mode == 'START_CHECKOUT':
+                            count_cannot_detect+=1
+                            count+=1
+                            if count_cannot_detect>=60 and count%100==0:
+                                t1 = threading.Thread(target=self.send_telegram_photo, args=[frame])
+                                t1.start()
+                            
 
                 self.display_frame_thread_safe(
                     frame, self.canvas_left, self.points_left, self.polygons_left)
@@ -401,6 +414,15 @@ class CameraApp(tk.Tk):
                             self.checkin_dal.checkIn(checkIn)
                         if self.mode == 'START_CHECKOUT':
                             self.checkin_dal.checkOut(nguoi_dung.Id)
+                    else:
+                        cv2.putText(frame, f"QUAY MAT VAO CAMERA",
+                                    (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
+                        if self.mode == 'START_CHECKIN' or self.mode == 'START_CHECKOUT':
+                            count_cannot_detect+=1
+                            count+=1
+                            if count_cannot_detect>=60 and count%100==0:
+                                t1 = threading.Thread(target=self.send_telegram_photo, args=[frame])
+                                t1.start()
                 self.display_frame_thread_safe(
                     frame, self.canvas_left, self.points_left, self.polygons_left)
 
@@ -530,6 +552,7 @@ class CameraApp(tk.Tk):
         files = {'photo': ('image.jpg', img_encoded.tobytes())}
         data = {'chat_id': TELEGRAM_CHAT_ID}
         requests.post(TELEGRAM_PHOTO_URL, data=data, files=files)
+        print('send telegram')
 
     def display_frame_thread_safe(self, frame, canvas, points, polygons):
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
