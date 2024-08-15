@@ -118,7 +118,7 @@ class LivenessDetection:
             left, top, right, bottom = _get_new_box(
                 image, (left, top, right, bottom), 2.7)
             face = image[top:bottom, left:right]
-            face = self.__preprocessing(face, mode=2.7)
+            face = self.__preprocessing(face)
             ort_input = {self.model_crop_1_0.get_inputs()[0].name: face}
             ort_out = self.model_crop_1_0.run(None, ort_input)[0]
             score = float(ort_out[0][1].item())

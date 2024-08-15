@@ -6,6 +6,7 @@ from tkinter import messagebox
 from PIL import Image, ImageTk
 
 from dal.NguoiDungDal import NguoiDungDal
+# from dal.NguoiDungDalSqlite import NguoiDungDal
 from modules.face_detection import FaceDetection
 from modules.face_recognition import FaceRecognition
 

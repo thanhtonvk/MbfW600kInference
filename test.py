@@ -1,9 +1,9 @@
-# import sqlite3
+import sqlite3
 # # from dal.CheckinDal import CheckinDal
 # # dal = CheckinDal()
 # # print(dal.get()[0].GioCheckout)
 
-# conn = sqlite3.connect('./database/database.sqlite')
+conn = sqlite3.connect('./database/database.sqlite')
 
 # conn.execute("""CREATE TABLE IF NOT EXISTS NguoiDung(
 #     Id integer primary key,
@@ -24,7 +24,9 @@
 #              )
 #              """)
 # conn.commit()
-# conn.close()
+conn.execute("""delete from Checkin""")
+conn.commit()
+conn.close()
 # # # # from dal.NguoiDungDal import NguoiDungDal
 # # # # dal = NguoiDungDal()
 
@@ -83,6 +85,3 @@
 # # import datetime
 # # currentDate = str(datetime.datetime.now())
 # # print(currentDate)
-import pygame
-pygame.init()
-pygame.mixer.init()

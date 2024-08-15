@@ -1,26 +1,25 @@
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, Toplevel
 import cv2
 import threading
 import time
+import re
 import numpy as np
 from ultralytics import YOLO
 import torch
 import pygame
 import requests
-import psutil
 import unidecode
-import subprocess  # Thêm thư viện để chạy file
-# from dal.NguoiDungDal import NguoiDungDal
-from dal.NguoiDungDalSqlite import NguoiDungDal
+import subprocess
+# from dal.NguoiDungDalSqlite import NguoiDungDal
+from dal.NguoiDungDal import NguoiDungDal
 from modules.face_detection import FaceDetection
 from modules.face_recognition import FaceRecognition
 from PIL import Image, ImageTk
 from objects.Checkin import Checkin
 from dal.CheckinDal import CheckinDal
 from objects.NguoiDung import NguoiDung
-import threading
-from modules.liveness_detection import LivenessDetection
+
 # Initialize pygame for sound playback
 pygame.init()
 pygame.mixer.init()
@@ -39,12 +38,12 @@ class ObjectDetection:
         self.CLASS_NAMES_DICT = self.model.names
 
     def load_model(self):
-        model = YOLO("models/tromm.pt")
+        model = YOLO("models/tromn.pt")
         model.to(self.device)
         return model
 
     def detect_objects(self, frame):
-        results = self.model(frame)
+        results = self.model(frame, verbose=False)
         xyxys = []
         confidences = []
         class_ids = []
@@ -63,17 +62,32 @@ class ObjectDetection:
             class_ids = np.array(class_ids)
 
             for (xyxy, confidence, class_id) in zip(xyxys, confidences, class_ids):
-                if xyxy.size == 4:
-                    x1, y1, x2, y2 = map(int, xyxy)
-                    label = f"{self.CLASS_NAMES_DICT[class_id]} {int(confidence * 100)}%"
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
-                    cv2.putText(frame, label, (x1, y1 - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
-                    x_center = (x1 + x2) // 2
-                    y_center = (y1 + y2) // 2
-                    cv2.circle(frame, (x_center, y_center), 5, (0, 0, 255), -1)
-
+                if (confidence > 0.5):
+                    if xyxy.size == 4:
+                        x1, y1, x2, y2 = map(int, xyxy)
+                        label = f"{self.CLASS_NAMES_DICT[class_id]} {int(confidence * 100)}%"
+                        cv2.rectangle(frame, (x1, y1),
+                                      (x2, y2), (255, 0, 0), 2)
+                        cv2.putText(frame, label, (x1, y1 - 10),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+                        x_center = (x1 + x2) // 2
+                        y_center = (y1 + y2) // 2
+                        cv2.circle(frame, (x_center, y_center),
+                                   5, (0, 0, 255), -1)
         return frame, xyxys, confidences, class_ids
+
+
+def is_valid_time_format(time_str: str) -> bool:
+    """Kiểm tra định dạng thời gian (HH:MM:SS)"""
+    pattern = re.compile(r'^\d{2}:\d{2}:\d{2}$')
+    if not pattern.match(time_str):
+        return False
+
+    try:
+        time.strptime(time_str, '%H:%M:%S')
+        return True
+    except ValueError:
+        return False
 
 
 class CameraApp(tk.Tk):
@@ -108,6 +122,12 @@ class CameraApp(tk.Tk):
             "Helvetica", 24, "bold"), fg="#FF0000", bg="#F5F5F5")
         self.title_label.pack(padx=20, pady=20)
 
+        # Khởi tạo đồng hồ số
+        self.clock_label = tk.Label(self, font=(
+            "Helvetica", 16), fg="#FF0000", bg="#F5F5F5")
+        self.clock_label.place(x=25, y=20)
+        self.update_clock()
+
         # Khởi tạo các đối tượng cho nhận diện khuôn mặt và nhận diện đối tượng
         self.face_detector = FaceDetection()
         self.face_recognition = FaceRecognition()
@@ -121,6 +141,7 @@ class CameraApp(tk.Tk):
         self.running_right = False
         self.lock_left = threading.Lock()
         self.lock_right = threading.Lock()
+        self.modeYolo = 'END'
 
         self.font_large = ("Helvetica", 16, "bold")
         self.font_small = ("Helvetica", 12)
@@ -140,7 +161,7 @@ class CameraApp(tk.Tk):
 
         # Buttons frame 1
         self.frame_buttons1 = tk.Frame(self, bg="#2c3e50")
-        self.frame_buttons1.place(x=73, y=680)
+        self.frame_buttons1.place(x=73, y=670)
 
         self.button_camera1 = tk.Button(self.frame_buttons1, text="Camera", font=self.font_small, bg="#1abc9c", fg="#ffffff",
                                         width=button_width, height=button_height, bd=2, relief="solid", highlightbackground="#16a085", command=self.start_camera_left)
@@ -159,7 +180,7 @@ class CameraApp(tk.Tk):
         self.button_exit1.pack(side=tk.LEFT, padx=10)
 
         self.frame_buttons3 = tk.Frame(self, bg="#2c3e50")
-        self.frame_buttons3.place(x=73, y=780)
+        self.frame_buttons3.place(x=400, y=730)
 
         self.button_camera1 = tk.Button(self.frame_buttons3, text="Bắt đầu checkin", font=self.font_small, bg="#1abc9c", fg="#ffffff",
                                         width=button_width, height=button_height, bd=2, relief="solid", highlightbackground="#16a085", command=self.startCheckin)
@@ -177,9 +198,14 @@ class CameraApp(tk.Tk):
                                        width=button_width, height=button_height, bd=2, relief="solid", highlightbackground="#16a085", command=self.endCheckout)
         self.button_video1.pack(side=tk.LEFT, padx=10)
 
+        # Thêm nút "Hẹn Giờ" bên cạnh nút "Checkout"
+        self.button_set_timer = tk.Button(self.frame_buttons3, text="Hẹn Giờ", font=self.font_small, bg="#1abc9c", fg="#ffffff",
+                                          width=button_width, height=button_height, bd=2, relief="solid", highlightbackground="#16a085", command=self.open_timer_window)
+        self.button_set_timer.pack(side=tk.LEFT, padx=10)
+
         # Buttons frame 2
         self.frame_buttons2 = tk.Frame(self, bg="#2c3e50")
-        self.frame_buttons2.place(x=800, y=680)
+        self.frame_buttons2.place(x=800, y=670)
 
         self.button_camera2 = tk.Button(self.frame_buttons2, text="Camera", font=self.font_small, bg="#1abc9c", fg="#ffffff",
                                         width=button_width, height=button_height, bd=2, relief="solid", highlightbackground="#16a085", command=self.start_camera_right)
@@ -231,8 +257,125 @@ class CameraApp(tk.Tk):
         self.nguoi_dung_dal = NguoiDungDal()
         self.nguoi_dungs = self.nguoi_dung_dal.get()
         self.checkin_dal = CheckinDal()
-        self.liveness_detection = LivenessDetection()
         self.mode = 'NONE'
+
+        # Thêm bảng hiển thị giờ bắt đầu và kết thúc
+        self.time_frame = tk.Frame(self, bg="#2c3e50")
+        self.time_frame.place(x=1270, y=20, width=200, height=90)
+
+        self.start_time_label = tk.Label(
+            self.time_frame, text="Giờ Bắt Đầu: --:--:--", font=self.font_small, fg="#ffffff", bg="#2c3e50")
+        self.start_time_label.pack(pady=10)
+
+        self.end_time_label = tk.Label(
+            self.time_frame, text="Giờ Kết Thúc: --:--:--", font=self.font_small, fg="#ffffff", bg="#2c3e50")
+        self.end_time_label.pack(pady=10)
+
+    def update_clock(self):
+        current_time = time.strftime("%H:%M:%S")
+        self.clock_label.config(text=current_time)
+        self.after(1000, self.update_clock)  # Gọi lại chính nó sau 1 giây
+
+    def open_timer_window(self):
+        self.timer_window = Toplevel(self)
+        self.timer_window.geometry("300x250")
+        self.timer_window.title("Hẹn Giờ")
+
+        # Nhãn và ô nhập cho thời gian bắt đầu điểm danh
+        self.start_time_label = tk.Label(
+            self.timer_window, text="Thời gian bắt đầu:", font=("Helvetica", 14))
+        self.start_time_label.pack(pady=10)
+        self.start_time_entry = tk.Entry(
+            self.timer_window, font=("Helvetica", 14))
+        self.start_time_entry.pack(pady=10)
+
+        # Nhãn và ô nhập cho thời gian kết thúc điểm danh
+        self.end_time_label = tk.Label(
+            self.timer_window, text="Thời gian kết thúc:", font=("Helvetica", 14))
+        self.end_time_label.pack(pady=10)
+        self.end_time_entry = tk.Entry(
+            self.timer_window, font=("Helvetica", 14))
+        self.end_time_entry.pack(pady=10)
+
+        # Nút để xác nhận đặt giờ
+        self.set_timer_button = tk.Button(self.timer_window, text="Đặt Giờ", font=(
+            "Helvetica", 14), command=self.set_timer)
+        self.set_timer_button.pack(pady=20)
+
+    def set_timer(self):
+        start_time = self.start_time_entry.get()
+        end_time = self.end_time_entry.get()
+
+        # Kiểm tra định dạng thời gian
+        if is_valid_time_format(start_time) and is_valid_time_format(end_time):
+            # Thời gian hợp lệ, tiếp tục xử lý
+            self.timer_window.withdraw()  # Ẩn cửa sổ hẹn giờ thay vì hủy bỏ
+
+            # Bắt đầu theo dõi thời gian và thực hiện check-in/check-out khi đến giờ
+            threading.Thread(target=self.check_timer, args=(
+                start_time, end_time), daemon=True).start()
+            tk.messagebox.showinfo("Thành công", "Hẹn giờ thành công!")
+
+            # Cập nhật nhãn hiển thị thời gian hẹn giờ
+            self.time_frame = tk.Frame(self, bg="#2c3e50")
+            self.time_frame.place(x=1270, y=20, width=200, height=90)
+
+            self.start_time_label = tk.Label(
+                self.time_frame, text=f"Giờ Bắt đầu: {start_time}", font=self.font_small, fg="#ffffff", bg="#2c3e50")
+            self.start_time_label.pack(pady=10)
+
+            self.end_time_label = tk.Label(
+                self.time_frame, text=f"Giờ Kết thúc: {end_time}", font=self.font_small, fg="#ffffff", bg="#2c3e50")
+            self.end_time_label.pack(pady=10)
+
+        else:
+            # Thời gian không hợp lệ, hiển thị cảnh báo
+            tk.messagebox.showerror(
+                "Lỗi", "Thời gian không hợp lệ! Vui lòng nhập theo định dạng HH:MM:SS.")
+
+    def check_timer(self, start_time, end_time):
+        while True:
+            current_time = time.strftime("%H:%M:%S")
+            if current_time == start_time:
+                self.startCheckin()
+            if current_time == end_time:
+                self.endCheckin()
+                break
+            time.sleep(1)
+
+    def startCheckin(self):
+        self.mode = 'START_CHECKIN'
+
+    def endCheckin(self):
+        self.mode = 'NONE'
+        self.end_time_label.config(
+            text=f"Giờ Kết Thúc: {time.strftime('%H:%M:%S')}")
+        list_hoc_sinh = self.nguoi_dung_dal.get()
+        list_checkin = self.checkin_dal.get()
+        list_id_checkin = [str(i.IdNguoiDung).strip() for i in list_checkin]
+        for hocSinh in list_hoc_sinh:
+            if str(hocSinh.Id).strip() not in list_id_checkin:
+                text = f'Bạn: {hocSinh.HoTen} ID: {hocSinh.Id} vắng'
+                print(text)
+                self.send_telegram_message(text)
+
+    def startCheckout(self):
+        self.mode = 'START_CHECKOUT'
+
+    def endCheckout(self):
+        self.mode = 'NONE'
+        self.end_time_label.config(
+            text=f"Giờ Kết Thúc: {time.strftime('%H:%M:%S')}")
+        list_hoc_sinh = self.nguoi_dung_dal.get()
+        list_checkin = self.checkin_dal.get()
+        id_chua_checkout = [str(i.IdNguoiDung).strip()
+                            for i in list_checkin if i.GioCheckout == '']
+        for hocSinh in list_hoc_sinh:
+            if str(hocSinh.Id).strip() in id_chua_checkout:
+                text = f'Bạn: {hocSinh.HoTen} ID: {hocSinh.Id} chưa checkout'
+                print(text)
+                self.send_telegram_message(text)
+        self.modeYolo = 'START'
 
     def run_nhapanh(self):
         subprocess.Popen(["python", "nhapanh.py"])
@@ -319,25 +462,21 @@ class CameraApp(tk.Tk):
         self.points_right = []
 
     def process_left(self):
-        count = 0
-        count_cannot_detect = 0
         self.nguoi_dungs = self.nguoi_dung_dal.get()
         self.cap_left = cv2.VideoCapture(self.video_source_left)
+        count_cannot_detect = 0  # Khởi tạo biến đếm
         while self.running_left:
             with self.lock_left:
                 ret, frame = self.cap_left.read()
             if ret:
-                count+=1
-                image = frame.copy()
                 frame = cv2.resize(frame, (680, 480))
                 if self.mode == "START_CHECKIN":
                     cv2.putText(frame, f"DANG CHECKIN",
-                                    (320, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
+                                (320, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
                 if self.mode == "START_CHECKOUT":
                     cv2.putText(frame, f"DANG CHECKOUT",
-                                    (320, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
-                
-                
+                                (320, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
+
                 predict = self.face_detector.detect(frame)
                 boxes = predict['boxes']
                 faces = predict['faces']
@@ -349,30 +488,35 @@ class CameraApp(tk.Tk):
                         face, self.nguoi_dungs)
 
                     if nguoi_dung is not None:
-                        is_live = self.liveness_detection.predict(image)
-                        if is_live:
-                            cv2.putText(frame, f"ID:{nguoi_dung.Id} {unidecode.unidecode(nguoi_dung.HoTen)}",
-                                        (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
-                            if self.mode == 'START_CHECKIN':
-                                checkIn = Checkin()
-                                checkIn.IdNguoiDung = nguoi_dung.Id
-                                checkIn.HoTen = nguoi_dung.HoTen
-                                self.checkin_dal.checkIn(checkIn)
-                            if self.mode == 'START_CHECKOUT':
-                                self.checkin_dal.checkOut(nguoi_dung.Id)
-                        else:
-                            cv2.putText(frame, f"KHONG PHAI MAT THAT",
-                                    (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA) 
+                        cv2.putText(frame, f"ID:{nguoi_dung.Id} {unidecode.unidecode(nguoi_dung.HoTen)}",
+                                    (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
+                        if self.mode == 'START_CHECKIN':
+                            checkIn = Checkin()
+                            checkIn.IdNguoiDung = nguoi_dung.Id
+                            checkIn.HoTen = nguoi_dung.HoTen
+                            is_success = self.checkin_dal.checkIn(checkIn)
+                            if is_success:
+                                self.play_thanh_cong()
+                        if self.mode == 'START_CHECKOUT':
+                            is_success = self.checkin_dal.checkOut(
+                                nguoi_dung.Id)
+                            if is_success:
+                                self.play_thanh_cong()
+                        count_cannot_detect = 0  # Reset biến đếm khi nhận diện thành công
                     else:
                         cv2.putText(frame, f"QUAY MAT VAO CAMERA",
                                     (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
                         if self.mode == 'START_CHECKIN' or self.mode == 'START_CHECKOUT':
-                            count_cannot_detect+=1
-                            count+=1
-                            if count_cannot_detect>=60 and count%100==0:
-                                t1 = threading.Thread(target=self.send_telegram_photo, args=[frame])
-                                t1.start()
-                            
+                            count_cannot_detect += 1
+                            if count_cannot_detect % 60 == 0:
+                                self.play_that_bai()
+                                # Hiển thị cảnh báo quay lại điểm danh
+                                cv2.putText(frame, f"QUAY LAI ĐIEM DANH",
+                                            (x, y + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2, cv2.LINE_AA)
+                                if count_cannot_detect % 100 == 0:
+                                    t1 = threading.Thread(
+                                        target=self.send_telegram_photo, args=[frame])
+                                    t1.start()
 
                 self.display_frame_thread_safe(
                     frame, self.canvas_left, self.points_left, self.polygons_left)
@@ -399,10 +543,10 @@ class CameraApp(tk.Tk):
                 frame = cv2.resize(frame, (680, 480))
                 if self.mode == "START_CHECKIN":
                     cv2.putText(frame, f"DANG CHECKIN",
-                                    (320, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
+                                (320, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
                 if self.mode == "START_CHECKOUT":
                     cv2.putText(frame, f"DANG CHECKOUT",
-                                    (320, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
+                                (320, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
                 predict = self.face_detector.detect(frame)
                 boxes = predict['boxes']
                 faces = predict['faces']
@@ -422,15 +566,6 @@ class CameraApp(tk.Tk):
                             self.checkin_dal.checkIn(checkIn)
                         if self.mode == 'START_CHECKOUT':
                             self.checkin_dal.checkOut(nguoi_dung.Id)
-                    else:
-                        cv2.putText(frame, f"QUAY MAT VAO CAMERA",
-                                    (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
-                        if self.mode == 'START_CHECKIN' or self.mode == 'START_CHECKOUT':
-                            count_cannot_detect+=1
-                            count+=1
-                            if count_cannot_detect>=60 and count%100==0:
-                                t1 = threading.Thread(target=self.send_telegram_photo, args=[frame])
-                                t1.start()
                 self.display_frame_thread_safe(
                     frame, self.canvas_left, self.points_left, self.polygons_left)
 
@@ -467,6 +602,13 @@ class CameraApp(tk.Tk):
                     self.fps_start_time_right = time.time()
                     self.frame_count_right = 0
                     self.update_fps_display(self.canvas_right, round(fps))
+                if self.modeYolo == 'START':
+                    if (len(class_ids) > 0):
+                        text = f'Còn {len(class_ids)} học sinh trên xe'
+                        print(text)
+                        self.send_telegram_message(text)
+                        self.send_telegram_photo(frame)
+                        self.modeYolo = 'END'
             else:
                 break
         with self.lock_right:
@@ -551,6 +693,18 @@ class CameraApp(tk.Tk):
         pygame.mixer.music.play()
         pygame.time.set_timer(pygame.USEREVENT, 3000)
 
+    def play_thanh_cong(self):
+        pygame.mixer.music.load("Alarm/Điểm danh thành công.mp3")
+        pygame.mixer.music.play()
+        pygame.time.set_timer(pygame.USEREVENT, 3000)
+
+    def play_that_bai(self):
+        pygame.mixer.music.load(
+            "Alarm/Không thể nhận diện, vui lòng thử lại.mp3")
+        pygame.mixer.music.play()
+        print('play canh bao ')
+        pygame.time.set_timer(pygame.USEREVENT, 3000)
+
     def send_telegram_message(self, message):
         data = {'chat_id': TELEGRAM_CHAT_ID, 'text': message}
         requests.post(TELEGRAM_API_URL, data=data)
@@ -560,7 +714,6 @@ class CameraApp(tk.Tk):
         files = {'photo': ('image.jpg', img_encoded.tobytes())}
         data = {'chat_id': TELEGRAM_CHAT_ID}
         requests.post(TELEGRAM_PHOTO_URL, data=data, files=files)
-        print('send telegram')
 
     def display_frame_thread_safe(self, frame, canvas, points, polygons):
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -584,32 +737,6 @@ class CameraApp(tk.Tk):
         canvas.delete("fps")
         canvas.create_text(
             10, 10, anchor=tk.NW, text=f"FPS: {fps}", fill="red", font=self.font_small, tag="fps")
-
-    def startCheckin(self):
-        self.mode = 'START_CHECKIN'
-
-    def endCheckin(self):
-        self.mode = 'NONE'
-        list_hoc_sinh = self.nguoi_dung_dal.get()
-        list_checkin = self.checkin_dal.get()
-        list_id_checkin = [str(i.IdNguoiDung).strip() for i in list_checkin]
-        for hocSinh in list_hoc_sinh:
-            if str(hocSinh.Id).strip() not in list_id_checkin:
-                text = f'Bạn: {hocSinh.HoTen} ID: {hocSinh.Id} vắng'
-                self.send_telegram_message(text)
-        
-    def startCheckout(self):
-        self.mode = 'START_CHECKOUT'
-
-    def endCheckout(self):
-        self.mode = 'NONE'
-        list_hoc_sinh = self.nguoi_dung_dal.get()
-        list_checkin = self.checkin_dal.get()
-        id_chua_checkout = [str(i.IdNguoiDung).strip() for i in list_checkin if i.GioCheckout == '']
-        for hocSinh in list_hoc_sinh:
-            if str(hocSinh.Id).strip() in id_chua_checkout:
-                text = f'Bạn: {hocSinh.HoTen} ID: {hocSinh.Id} chưa checkout'
-                self.send_telegram_message(text)
 
     def quit(self):
         self.running_left = False
