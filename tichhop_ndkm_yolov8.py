@@ -11,8 +11,8 @@ import requests
 import psutil
 import unidecode
 import subprocess  # Thêm thư viện để chạy file
-from dal.NguoiDungDal import NguoiDungDal
-# from dal.NguoiDungDalSqlite import NguoiDungDal
+# from dal.NguoiDungDal import NguoiDungDal
+from dal.NguoiDungDalSqlite import NguoiDungDal
 from modules.face_detection import FaceDetection
 from modules.face_recognition import FaceRecognition
 from PIL import Image, ImageTk
@@ -20,6 +20,7 @@ from objects.Checkin import Checkin
 from dal.CheckinDal import CheckinDal
 from objects.NguoiDung import NguoiDung
 import threading
+from modules.liveness_detection import LivenessDetection
 # Initialize pygame for sound playback
 pygame.init()
 pygame.mixer.init()
@@ -230,6 +231,7 @@ class CameraApp(tk.Tk):
         self.nguoi_dung_dal = NguoiDungDal()
         self.nguoi_dungs = self.nguoi_dung_dal.get()
         self.checkin_dal = CheckinDal()
+        self.liveness_detection = LivenessDetection()
         self.mode = 'NONE'
 
     def run_nhapanh(self):
@@ -326,6 +328,7 @@ class CameraApp(tk.Tk):
                 ret, frame = self.cap_left.read()
             if ret:
                 count+=1
+                image = frame.copy()
                 frame = cv2.resize(frame, (680, 480))
                 if self.mode == "START_CHECKIN":
                     cv2.putText(frame, f"DANG CHECKIN",
@@ -346,15 +349,20 @@ class CameraApp(tk.Tk):
                         face, self.nguoi_dungs)
 
                     if nguoi_dung is not None:
-                        cv2.putText(frame, f"ID:{nguoi_dung.Id} {unidecode.unidecode(nguoi_dung.HoTen)}",
-                                    (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
-                        if self.mode == 'START_CHECKIN':
-                            checkIn = Checkin()
-                            checkIn.IdNguoiDung = nguoi_dung.Id
-                            checkIn.HoTen = nguoi_dung.HoTen
-                            self.checkin_dal.checkIn(checkIn)
-                        if self.mode == 'START_CHECKOUT':
-                            self.checkin_dal.checkOut(nguoi_dung.Id)
+                        is_live = self.liveness_detection.predict(image)
+                        if is_live:
+                            cv2.putText(frame, f"ID:{nguoi_dung.Id} {unidecode.unidecode(nguoi_dung.HoTen)}",
+                                        (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
+                            if self.mode == 'START_CHECKIN':
+                                checkIn = Checkin()
+                                checkIn.IdNguoiDung = nguoi_dung.Id
+                                checkIn.HoTen = nguoi_dung.HoTen
+                                self.checkin_dal.checkIn(checkIn)
+                            if self.mode == 'START_CHECKOUT':
+                                self.checkin_dal.checkOut(nguoi_dung.Id)
+                        else:
+                            cv2.putText(frame, f"KHONG PHAI MAT THAT",
+                                    (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA) 
                     else:
                         cv2.putText(frame, f"QUAY MAT VAO CAMERA",
                                     (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
