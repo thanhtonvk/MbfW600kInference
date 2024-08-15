@@ -547,6 +547,7 @@ class CameraApp(tk.Tk):
                 if self.mode == "START_CHECKOUT":
                     cv2.putText(frame, f"DANG CHECKOUT",
                                 (320, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
+
                 predict = self.face_detector.detect(frame)
                 boxes = predict['boxes']
                 faces = predict['faces']
@@ -556,6 +557,7 @@ class CameraApp(tk.Tk):
                     face = faces[idx]
                     nguoi_dung = self.face_recognition.search_face(
                         face, self.nguoi_dungs)
+
                     if nguoi_dung is not None:
                         cv2.putText(frame, f"ID:{nguoi_dung.Id} {unidecode.unidecode(nguoi_dung.HoTen)}",
                                     (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
@@ -563,19 +565,29 @@ class CameraApp(tk.Tk):
                             checkIn = Checkin()
                             checkIn.IdNguoiDung = nguoi_dung.Id
                             checkIn.HoTen = nguoi_dung.HoTen
-                            self.checkin_dal.checkIn(checkIn)
+                            is_success = self.checkin_dal.checkIn(checkIn)
+                            if is_success:
+                                self.play_thanh_cong()
                         if self.mode == 'START_CHECKOUT':
-                            self.checkin_dal.checkOut(nguoi_dung.Id)
-                self.display_frame_thread_safe(
-                    frame, self.canvas_left, self.points_left, self.polygons_left)
-
-                self.frame_count_left += 1
-                elapsed_time = time.time() - self.fps_start_time_left
-                if elapsed_time > 1:
-                    fps = self.frame_count_left / elapsed_time
-                    self.fps_start_time_left = time.time()
-                    self.frame_count_left = 0
-                    self.update_fps_display(self.canvas_left, round(fps))
+                            is_success = self.checkin_dal.checkOut(
+                                nguoi_dung.Id)
+                            if is_success:
+                                self.play_thanh_cong()
+                        count_cannot_detect = 0  # Reset biến đếm khi nhận diện thành công
+                    else:
+                        cv2.putText(frame, f"QUAY MAT VAO CAMERA",
+                                    (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
+                        if self.mode == 'START_CHECKIN' or self.mode == 'START_CHECKOUT':
+                            count_cannot_detect += 1
+                            if count_cannot_detect % 60 == 0:
+                                self.play_that_bai()
+                                # Hiển thị cảnh báo quay lại điểm danh
+                                cv2.putText(frame, f"QUAY LAI ĐIEM DANH",
+                                            (x, y + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2, cv2.LINE_AA)
+                                if count_cannot_detect % 100 == 0:
+                                    t1 = threading.Thread(
+                                        target=self.send_telegram_photo, args=[frame])
+                                    t1.start()
             else:
                 break
         with self.lock_left:
@@ -634,6 +646,13 @@ class CameraApp(tk.Tk):
                     self.fps_start_time_right = time.time()
                     self.frame_count_right = 0
                     self.update_fps_display(self.canvas_right, round(fps))
+                if self.modeYolo == 'START':
+                    if (len(class_ids) > 0):
+                        text = f'Còn {len(class_ids)} học sinh trên xe'
+                        print(text)
+                        self.send_telegram_message(text)
+                        self.send_telegram_photo(frame)
+                        self.modeYolo = 'END'
             else:
                 break
         with self.lock_right:
