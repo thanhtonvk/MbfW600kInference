@@ -70,7 +70,7 @@ def load_model(eval_model):
     return net
 
 
-def img_resize(img, smax=640):
+def img_resize(img, smax=360):
     h, w, _ = img.shape
     m = min(h, w)
     if m > smax:
@@ -86,18 +86,35 @@ def img_resize(img, smax=640):
     return img
 
 
+def resize_1_0(box):
+    expand_ratio = (1.1, 1.05)
+    left, top, right, bottom = box
+    w = (right - left)
+    h = (bottom - top)
+    dw = w * (expand_ratio[0] - 1.) / 2
+    dh = h * (expand_ratio[1] - 1.) / 2
+    left = max(int(left - dw), 0)
+    right = int(right + dw)
+    top = max(int(top - dh), 0)
+    bottom = int(bottom + dh)
+    return left, top, right, bottom
+
+
 class LivenessDetection:
 
     MEAN = [0.5, 0.5, 0.5]
     STD = [0.5, 0.5, 0.5]
 
-    def __init__(self, eval_model_1=config.MODEL_FACE_LIVENESS):
+    def __init__(self, eval_model_1=config.MODEL_FACE_LIVENESS_CROP_1_0, eval_model_2=config.MODEL_FACE_LIVENESS_CROP_2_7):
         self.eval_model_1 = eval_model_1
+        self.eval_model_2 = eval_model_2
         self.model_crop_1_0 = load_model(self.eval_model_1)
+        self.model_crop_2_0 = load_model(self.eval_model_2)
         self.detector = Detector()
 
-    def __preprocessing(self, face: np.ndarray):
+    def __preprocessing(self, face: np.ndarray, mode=1.0):
         SIZE = (128, 128)
+        face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
         face = cv2.resize(
             face, SIZE, interpolation=cv2.INTER_CUBIC).astype('float')
         face /= 255.0
@@ -107,23 +124,39 @@ class LivenessDetection:
         return face
 
     def predict(self, image: np.ndarray):
-        image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
         image = img_resize(image)
         boxes = self.detector.detect(image)
-        if len(boxes)>0:
-            box = get_max(boxes)
-            box = [int(i) for i in box]
-            left, top, right, bottom = box
-            left, top, right, bottom = resize(box)
-            left, top, right, bottom = _get_new_box(
-                image, (left, top, right, bottom), 2.7)
-            face = image[top:bottom, left:right]
-            face = self.__preprocessing(face)
-            ort_input = {self.model_crop_1_0.get_inputs()[0].name: face}
-            ort_out = self.model_crop_1_0.run(None, ort_input)[0]
-            score = float(ort_out[0][1].item())
-            if score > 0.5:
-                return False
-            else:
-                return True
-        return False
+        box = get_max(boxes)
+        if box is None:
+            return '', False
+        box = [int(i) for i in box]
+        left, top, right, bottom = box
+        face_width = int(right-left)
+        face_height = int(bottom-top)
+        if face_width < 80 or face_height < 80:
+            return "DUA MAT GAN HON", False
+        if face_width > 230 or face_height > 230:
+            return "DUA MAT RA XA HON", False
+
+        left, top, right, bottom = resize_1_0(box)
+        left, top, right, bottom = _get_new_box(
+            image, (left, top, right, bottom), 1.0)
+        face = image[top:bottom, left:right]
+        face = self.__preprocessing(face, mode=1.0)
+        ort_input = {self.model_crop_1_0.get_inputs()[0].name: face}
+        ort_out = self.model_crop_1_0.run(None, ort_input)[0]
+        score = float(ort_out[0][1].item())
+        if score > 0.5:
+            return score, False
+        left, top, right, bottom = resize(box)
+        left, top, right, bottom = _get_new_box(
+            image, (left, top, right, bottom), 2.7)
+        face = image[top:bottom, left:right]
+        face = self.__preprocessing(face, mode=2.7)
+        ort_input = {self.model_crop_2_0.get_inputs()[0].name: face}
+        ort_out = self.model_crop_2_0.run(None, ort_input)[0]
+        score = float(ort_out[0][1].item())
+        if score > 0.5:
+            return score, False
+        else:
+            return score, True

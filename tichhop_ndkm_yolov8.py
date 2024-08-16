@@ -19,6 +19,7 @@ from PIL import Image, ImageTk
 from objects.Checkin import Checkin
 from dal.CheckinDal import CheckinDal
 from objects.NguoiDung import NguoiDung
+from modules.liveness_detection import LivenessDetection
 
 # Initialize pygame for sound playback
 pygame.init()
@@ -30,7 +31,18 @@ TELEGRAM_CHAT_ID = '7131930827'
 TELEGRAM_API_URL = f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage'
 TELEGRAM_PHOTO_URL = f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto'
 
-
+def get_max(boxes):
+    max = 0
+    result = None
+    for i,box in enumerate(boxes):
+        left, top, right, bottom = box
+        w = (right - left)
+        h = (bottom - top)
+        area = w*h
+        if area > max:
+            max = area
+            result = i
+    return result
 class ObjectDetection:
     def __init__(self):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -257,6 +269,7 @@ class CameraApp(tk.Tk):
         self.nguoi_dung_dal = NguoiDungDal()
         self.nguoi_dungs = self.nguoi_dung_dal.get()
         self.checkin_dal = CheckinDal()
+        self.liveness_detection = LivenessDetection()
         self.mode = 'NONE'
 
         # Thêm bảng hiển thị giờ bắt đầu và kết thúc
@@ -358,7 +371,14 @@ class CameraApp(tk.Tk):
                 text = f'Bạn: {hocSinh.HoTen} ID: {hocSinh.Id} vắng'
                 print(text)
                 self.send_telegram_message(text)
-
+    
+    def get_list_chua_checkout(self):
+        list_hoc_sinh = self.nguoi_dung_dal.get()
+        list_checkin = self.checkin_dal.get()
+        id_chua_checkout = [str(i.IdNguoiDung).strip()
+                            for i in list_checkin if i.GioCheckout == '']
+        return id_chua_checkout
+                
     def startCheckout(self):
         self.mode = 'START_CHECKOUT'
 
@@ -465,10 +485,13 @@ class CameraApp(tk.Tk):
         self.nguoi_dungs = self.nguoi_dung_dal.get()
         self.cap_left = cv2.VideoCapture(self.video_source_left)
         count_cannot_detect = 0  # Khởi tạo biến đếm
+        count_gia_mao = 0
         while self.running_left:
             with self.lock_left:
                 ret, frame = self.cap_left.read()
             if ret:
+                count_gia_mao+=1
+                image = frame.copy()
                 frame = cv2.resize(frame, (680, 480))
                 if self.mode == "START_CHECKIN":
                     cv2.putText(frame, f"DANG CHECKIN",
@@ -480,44 +503,70 @@ class CameraApp(tk.Tk):
                 predict = self.face_detector.detect(frame)
                 boxes = predict['boxes']
                 faces = predict['faces']
-
-                for idx, (x, y, w, h) in enumerate(boxes):
+                idx = get_max(boxes)
+                if idx is not None:
+                    x, y, w, h = boxes[idx]
                     cv2.rectangle(frame, (x, y), (w, h), (0, 255, 0), 2)
                     face = faces[idx]
-                    nguoi_dung = self.face_recognition.search_face(
-                        face, self.nguoi_dungs)
+                    result, is_live = self.liveness_detection.predict(image)
+                    if is_live:
+                        nguoi_dung = self.face_recognition.search_face(
+                            face, self.nguoi_dungs)
 
-                    if nguoi_dung is not None:
-                        cv2.putText(frame, f"ID:{nguoi_dung.Id} {unidecode.unidecode(nguoi_dung.HoTen)}",
-                                    (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
-                        if self.mode == 'START_CHECKIN':
-                            checkIn = Checkin()
-                            checkIn.IdNguoiDung = nguoi_dung.Id
-                            checkIn.HoTen = nguoi_dung.HoTen
-                            is_success = self.checkin_dal.checkIn(checkIn)
-                            if is_success:
-                                self.play_thanh_cong()
-                        if self.mode == 'START_CHECKOUT':
-                            is_success = self.checkin_dal.checkOut(
-                                nguoi_dung.Id)
-                            if is_success:
-                                self.play_thanh_cong()
-                        count_cannot_detect = 0  # Reset biến đếm khi nhận diện thành công
-                    else:
-                        cv2.putText(frame, f"QUAY MAT VAO CAMERA",
-                                    (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
-                        if self.mode == 'START_CHECKIN' or self.mode == 'START_CHECKOUT':
-                            count_cannot_detect += 1
-                            if count_cannot_detect % 60 == 0:
-                                self.play_that_bai()
-                                # Hiển thị cảnh báo quay lại điểm danh
-                                cv2.putText(frame, f"QUAY LAI ĐIEM DANH",
-                                            (x, y + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2, cv2.LINE_AA)
-                                if count_cannot_detect % 100 == 0:
+                        if nguoi_dung is not None:
+                            is_liveness = self.liveness_detection.predict(image)
+                            if is_liveness:
+                                cv2.putText(frame, f"ID:{nguoi_dung.Id} {unidecode.unidecode(nguoi_dung.HoTen)}",
+                                        (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
+                                if self.mode == 'START_CHECKIN':
+                                    checkIn = Checkin()
+                                    checkIn.IdNguoiDung = nguoi_dung.Id
+                                    checkIn.HoTen = nguoi_dung.HoTen
+                                    is_success = self.checkin_dal.checkIn(checkIn)
+                                    if is_success:
+                                        self.play_thanh_cong()
+                                if self.mode == 'START_CHECKOUT':
+                                    is_success = self.checkin_dal.checkOut(
+                                        nguoi_dung.Id)
+                                    if is_success:
+                                        self.play_thanh_cong()
+                            else:
+                                
+                                if count_gia_mao %30 ==0:
+                                    # self.play_gia_mao()
+                                
                                     t1 = threading.Thread(
-                                        target=self.send_telegram_photo, args=[frame])
+                                            target=self.send_telegram_photo, args=[frame])
                                     t1.start()
-
+                                    t1 = threading.Thread(
+                                            target=self.send_telegram_message, args=["PHát hiện giả mạo"])
+                                    t1.start()
+                                cv2.putText(frame, f"",
+                                        (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
+                            count_cannot_detect = 0  # Reset biến đếm khi nhận diện thành công
+                        else:
+                            cv2.putText(frame, f"QUAY MAT VAO CAMERA",
+                                        (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
+                            if self.mode == 'START_CHECKIN' or self.mode == 'START_CHECKOUT':
+                                count_cannot_detect += 1
+                                if count_cannot_detect % 60 == 0:
+                                    self.play_that_bai()
+                                    # Hiển thị cảnh báo quay lại điểm danh
+                                    cv2.putText(frame, f"QUAY LAI ĐIEM DANH",
+                                                (x, y + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2, cv2.LINE_AA)
+                                    if count_cannot_detect % 100 == 0:
+                                        t1 = threading.Thread(
+                                            target=self.send_telegram_photo, args=[frame])
+                                        t1.start()
+                    else:
+                        if result is str:
+                            cv2.putText(frame, result,
+                                        (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
+                        else:
+                            cv2.putText(frame, f"FAKE",
+                                        (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
+                    
+                        
                 self.display_frame_thread_safe(
                     frame, self.canvas_left, self.points_left, self.polygons_left)
 
@@ -603,7 +652,7 @@ class CameraApp(tk.Tk):
                 frame = cv2.resize(frame, (680, 480))
                 frame, xyxys, confidences, class_ids = self.object_detection.detect_objects(
                     frame)
-                self.check_alert(xyxys, confidences, class_ids, frame)
+                
                 self.display_frame_thread_safe(
                     frame, self.canvas_right, self.points_right, self.polygons_right)
 
@@ -615,11 +664,9 @@ class CameraApp(tk.Tk):
                     self.frame_count_right = 0
                     self.update_fps_display(self.canvas_right, round(fps))
                 if self.modeYolo == 'START':
-                    if (len(class_ids) > 0):
-                        text = f'Còn {len(class_ids)} học sinh trên xe'
-                        print(text)
-                        self.send_telegram_message(text)
-                        self.send_telegram_photo(frame)
+                    id_chua_checkout = self.get_list_chua_checkout()
+                    if (len(id_chua_checkout) > 0):
+                        self.check_alert(xyxys, confidences, class_ids, frame)
                         self.modeYolo = 'END'
             else:
                 break
@@ -668,15 +715,14 @@ class CameraApp(tk.Tk):
                 x_center = (x1 + x2) // 2
                 y_center = (y1 + y2) // 2
                 point = (x_center, y_center)
-                object_detected = True
-
                 for i, polygon in enumerate(self.polygons_right):
                     if self.is_point_in_polygon(point, polygon):
-                        objects_in_polygons[i] += 1
-
-        if len(self.polygons_right) >= 2 and objects_in_polygons[1] == 1 and all(count == 0 for i, count in enumerate(objects_in_polygons) if i != 1):
+                        object_detected = True
+        if object_detected and len(self.polygons_right) >= 2 and objects_in_polygons[1] == 1 and all(count == 0 for i, count in enumerate(objects_in_polygons) if i != 1):
+            print('van con hoc sinh, yeu cau xuong xe')
             threading.Thread(target=self.alert, args=(
                 frame,), daemon=True).start()
+            threading.Timer(10, self.send_telegram_message, args=['Vẫn còn học sinh trên xe']).start()            
         elif not object_detected:
             pygame.mixer.music.stop()
 
@@ -733,6 +779,13 @@ class CameraApp(tk.Tk):
         files = {'photo': ('image.jpg', img_encoded.tobytes())}
         data = {'chat_id': TELEGRAM_CHAT_ID}
         requests.post(TELEGRAM_PHOTO_URL, data=data, files=files)
+    
+    # def play_gia_mao(self):
+    #     pygame.mixer.music.load(
+    #         "Alarm/giamao.mp3")
+    #     pygame.mixer.music.play()
+    #     print('play canh bao ')
+    #     pygame.time.set_timer(pygame.USEREVENT, 3000)
 
     def display_frame_thread_safe(self, frame, canvas, points, polygons):
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
