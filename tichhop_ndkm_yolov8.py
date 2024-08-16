@@ -723,8 +723,8 @@ class CameraApp(tk.Tk):
             threading.Thread(target=self.alert, args=(
                 frame,), daemon=True).start()
             threading.Timer(10, self.send_telegram_message, args=['Vẫn còn học sinh trên xe']).start()            
-        elif not object_detected:
-            pygame.mixer.music.stop()
+        # elif not object_detected:
+        #     pygame.mixer.music.stop()
 
     def is_point_in_polygon(self, point, polygon):
         x, y = point
