@@ -2,7 +2,7 @@ import os
 from flask import Flask, render_template, request, redirect
 import cv2
 
-from dal.NguoiDungDal import NguoiDungDal
+from dal.NguoiDungDalSqlite import NguoiDungDal
 from modules.face_detection import FaceDetection
 from modules.face_recognition import FaceRecognition
 app = Flask(__name__)

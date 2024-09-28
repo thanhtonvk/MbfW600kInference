@@ -45,7 +45,7 @@ class FaceRecognition:
             score = cosine_similarity(current_emb, emb)[0][0]
             # print(f"Similarity score with {nguoi_dung.HoTen}: {score}")
             
-            if score > 0.5 and score > max_score:  # Giảm ngưỡng để tăng khả năng tìm thấy khớp
+            if score > 0.3 and score > max_score:  # Giảm ngưỡng để tăng khả năng tìm thấy khớp
                 max_score = score
                 idx_max = i
         if idx_max > -1:
