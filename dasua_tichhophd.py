@@ -131,9 +131,9 @@ class CameraApp(tk.Tk):
         super().__init__()
 
         self.title("Camera Interface")
-        self.geometry("1920x1080")
-        self.font_large = ("Helvetica", 16, "bold")
-        self.font_small = ("Helvetica", 12)
+        self.geometry("1280x720")
+        self.font_large = ("Helvetica", 12, "bold")
+        self.font_small = ("Helvetica", 10)
         # Load and set the background image
         self.background_image = Image.open("hugo.jpg")
         self.background_image = self.background_image.resize(
@@ -148,19 +148,19 @@ class CameraApp(tk.Tk):
         # Add logo at the top left
         self.logo_image = Image.open("logo.png")
         self.logo_image = self.logo_image.resize(
-            (100, 100), Image.Resampling.LANCZOS)
+            (70, 70), Image.Resampling.LANCZOS)
         self.logo_photo = ImageTk.PhotoImage(self.logo_image)
         self.logo_label = tk.Label(self, image=self.logo_photo, bg="#2c3e50")
         self.logo_label.place(x=20, y=10)
 
         # Create a title frame with an inner red border
         self.title_frame = tk.Frame(self, bg="#00BFFF", bd=10, relief="ridge")
-        self.title_frame.place(x=460, y=20, width=1000, height=90)
+        self.title_frame.place(x=300, y=20, width=700, height=90)
 
         self.title_label = tk.Label(
             self.title_frame,
             text="HỆ THỐNG THÔNG MINH TRÊN XE ĐƯA ĐÓN HỌC SINH",
-            font=("Helvetica", 24, "bold"),
+            font=("Helvetica", 16, "bold"),
             fg="#FF0000",
             bg="#F5F5F5",
         )
@@ -175,7 +175,7 @@ class CameraApp(tk.Tk):
 
         # Thêm bảng hiển thị giờ bắt đầu và kết thúc
         self.time_frame = tk.Frame(self, bg="#2c3e50")
-        self.time_frame.place(x=1480, y=20, width=200, height=120)
+        self.time_frame.place(x=1000, y=20, width=200, height=90)
         self.start_time_label = tk.Label(
             self.time_frame,
             text="Giờ Bắt Đầu: --:--:--",
@@ -233,13 +233,13 @@ class CameraApp(tk.Tk):
             highlightcolor="#00BFFF",
             highlightthickness=4,
         )
-        self.frame_camera1.place(x=0, y=140)
+        self.frame_camera1.place(x=0, y=100)
 
         # Camera frame 2
         self.frame_camera2 = tk.Frame(
             self,
-            width=900,
-            height=720,
+            width=600,
+            height=480,
             bg="#00BFFF",
             bd=10,
             relief="solid",
@@ -247,22 +247,22 @@ class CameraApp(tk.Tk):
             highlightcolor="#00BFFF",
             highlightthickness=4,
         )
-        self.frame_camera2.place(x=980, y=140)
+        self.frame_camera2.place(x=650, y=100)
         # Canvas for Camera 1
         self.canvas_left = tk.Canvas(
-            self.frame_camera1, width=900, height=720, bg="#34495e"
+            self.frame_camera1, width=600, height=480, bg="#34495e"
         )
         self.canvas_left.pack()
 
         # Canvas for Camera 2
         self.canvas_right = tk.Canvas(
-            self.frame_camera2, width=900, height=720, bg="#34495e"
+            self.frame_camera2, width=600, height=480, bg="#34495e"
         )
         self.canvas_right.pack()
 
         # Buttons frame 1
         self.frame_buttons1 = tk.Frame(self, bg="#2c3e50")
-        self.frame_buttons1.place(x=100, y=900)
+        self.frame_buttons1.place(x=0, y=630)
 
         self.button_camera1 = tk.Button(
             self.frame_buttons1,
@@ -325,7 +325,7 @@ class CameraApp(tk.Tk):
         self.button_exit1.pack(side=tk.LEFT, padx=10)
 
         self.frame_buttons3 = tk.Frame(self, bg="#2c3e50")
-        self.frame_buttons3.place(x=500, y=950)
+        self.frame_buttons3.place(x=250, y=680)
 
         self.button_camera1 = tk.Button(
             self.frame_buttons3,
@@ -421,7 +421,7 @@ class CameraApp(tk.Tk):
 
         # Buttons frame 2
         self.frame_buttons2 = tk.Frame(self, bg="#2c3e50")
-        self.frame_buttons2.place(x=1100, y=900)
+        self.frame_buttons2.place(x=680, y=630)
 
         self.button_camera2 = tk.Button(
             self.frame_buttons2,
