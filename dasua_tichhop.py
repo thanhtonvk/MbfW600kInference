@@ -175,7 +175,7 @@ class CameraApp(tk.Tk):
 
         # Thêm bảng hiển thị giờ bắt đầu và kết thúc
         self.time_frame = tk.Frame(self, bg="#2c3e50")
-        self.time_frame.place(x=1480, y=20, width=200, height=120)
+        self.time_frame.place(x=1480, y=10, width=200, height=120)
         self.start_time_label = tk.Label(
             self.time_frame,
             text="Giờ Bắt Đầu: --:--:--",
@@ -183,7 +183,7 @@ class CameraApp(tk.Tk):
             fg="#ffffff",
             bg="#2c3e50",
         )
-        self.start_time_label.pack(pady=10)
+        self.start_time_label.pack(pady=1)
 
         self.end_time_label = tk.Label(
             self.time_frame,
@@ -192,16 +192,23 @@ class CameraApp(tk.Tk):
             fg="#ffffff",
             bg="#2c3e50",
         )
-        self.end_time_label.pack(pady=10)
-
-        self.end_time_count = tk.Label(
+        self.end_time_label.pack(pady=1)
+        self.start_time_count = tk.Label(
             self.time_frame,
-            text="Đếm học sinh: --:--:--",
+            text="Đếm học sinh in: --:--:--",
             font=self.font_small,
             fg="#ffffff",
             bg="#2c3e50",
         )
-        self.end_time_count.pack(pady=10)
+        self.start_time_count.pack(pady=1)
+        self.end_time_count = tk.Label(
+            self.time_frame,
+            text="Đếm học sinh out: --:--:--",
+            font=self.font_small,
+            fg="#ffffff",
+            bg="#2c3e50",
+        )
+        self.end_time_count.pack(pady=1)
 
         # Khởi tạo các đối tượng cho nhận diện khuôn mặt và nhận diện đối tượng
         self.face_detector = FaceDetection()
@@ -520,6 +527,7 @@ class CameraApp(tk.Tk):
         self.liveness_detection = LivenessDetection()
         self.mode = "NONE"
         self.startDem = ""
+        self.endDem = ""
 
         self.start_count_hs = False
 
@@ -530,17 +538,24 @@ class CameraApp(tk.Tk):
 
     def hen_gio_dem_hoc_sinh(self):
         self.timer_window = Toplevel()
-        self.timer_window.geometry("300x250")
+        self.timer_window.geometry("400x250")
         self.timer_window.title("Hẹn Giờ")
 
-        # Nhãn và ô nhập cho thời gian bắt đầu điểm danh
-        self.start_time_label = tk.Label(
-            self.timer_window, text="Thời gian bắt đầu (HH:MM:SS):", font=("Helvetica", 14)
+        self.start_temp = tk.Label(
+            self.timer_window, text="Thời gian đếm HS checkin (HH:MM:SS):", font=("Helvetica", 14)
         )
-        self.start_time_label.pack(pady=10)
-        self.start_time_entry = tk.Entry(
+        self.start_temp.pack(pady=10)
+        self.start_temp_entry = tk.Entry(
             self.timer_window, font=("Helvetica", 14))
-        self.start_time_entry.pack(pady=10)
+        self.start_temp_entry.pack(pady=10)
+
+        self.end_temp = tk.Label(
+            self.timer_window, text="Thời gian đếm HS checkout (HH:MM:SS):", font=("Helvetica", 14)
+        )
+        self.end_temp.pack(pady=10)
+        self.end_temp_entry = tk.Entry(
+            self.timer_window, font=("Helvetica", 14))
+        self.end_temp_entry.pack(pady=10)
 
         # Nút để xác nhận đặt giờ
         self.set_timer_button = tk.Button(
@@ -559,21 +574,22 @@ class CameraApp(tk.Tk):
             return False
 
     def set_thoi_gian_dem(self):
-        start_time = self.start_time_entry.get()
+        start_time = self.start_temp_entry.get()
+        end_time = self.end_temp_entry.get()
 
-        if self.is_valid_time_format(start_time):
+        if self.is_valid_time_format(start_time) and self.is_valid_time_format(end_time):
             print(start_time)
             self.timer_window.withdraw()  # Ẩn cửa sổ hẹn giờ
             tk.messagebox.showinfo("Thành công", "Hẹn giờ thành công!")
-            self.end_time_count = tk.Label(
-                self.time_frame,
-                text=f"Giờ đếm HS: {start_time}",
-                font=self.font_small,
-                fg="#ffffff",
-                bg="#2c3e50",
-            )
-            self.end_time_count.pack(pady=10)
+
+            self.start_time_count.pack()
+            self.start_time_count.config(text=f"Giờ đếm Checkin: {start_time}")
+
+            self.end_time_count.pack()
+            self.end_time_count.config(text=f"Giờ đếm Checkout: {end_time}")
+
             self.startDem = start_time
+            self.endDem = end_time
         else:
             # Thời gian không hợp lệ, hiển thị cảnh báo
             tk.messagebox.showerror(
@@ -582,7 +598,7 @@ class CameraApp(tk.Tk):
 
     def check_chup_anh(self):
         current_time = datetime.now().strftime("%H:%M:%S")
-        if self.startDem == current_time:
+        if self.startDem == current_time or self.endDem == current_time:
             self.dem_so_luong()
 
     def open_timer_window(self):
@@ -591,19 +607,19 @@ class CameraApp(tk.Tk):
         self.timer_window.title("Hẹn Giờ")
 
         # Nhãn và ô nhập cho thời gian bắt đầu điểm danh
-        self.start_time_label = tk.Label(
+        self.start_temp = tk.Label(
             self.timer_window, text="Thời gian bắt đầu:", font=("Helvetica", 14)
         )
-        self.start_time_label.pack(pady=10)
+        self.start_temp.pack(pady=10)
         self.start_time_entry = tk.Entry(
             self.timer_window, font=("Helvetica", 14))
         self.start_time_entry.pack(pady=10)
 
         # Nhãn và ô nhập cho thời gian kết thúc điểm danh
-        self.end_time_label = tk.Label(
+        self.end_temp = tk.Label(
             self.timer_window, text="Thời gian kết thúc:", font=("Helvetica", 14)
         )
-        self.end_time_label.pack(pady=10)
+        self.end_temp.pack(pady=10)
         self.end_time_entry = tk.Entry(
             self.timer_window, font=("Helvetica", 14))
         self.end_time_entry.pack(pady=10)
@@ -633,27 +649,11 @@ class CameraApp(tk.Tk):
             ).start()
             tk.messagebox.showinfo("Thành công", "Hẹn giờ thành công!")
 
-            # Cập nhật nhãn hiển thị thời gian hẹn giờ
-            self.time_frame = tk.Frame(self, bg="#2c3e50")
-            self.time_frame.place(x=1270, y=20, width=200, height=90)
+            self.start_time_label.pack()
+            self.start_time_label.config(text=f"Giờ Bắt Đầu: {start_time}")
 
-            self.start_time_label = tk.Label(
-                self.time_frame,
-                text=f"Giờ Bắt đầu: {start_time}",
-                font=self.font_small,
-                fg="#ffffff",
-                bg="#2c3e50",
-            )
-            self.start_time_label.pack(pady=10)
-
-            self.end_time_label = tk.Label(
-                self.time_frame,
-                text=f"Giờ Kết thúc: {end_time}",
-                font=self.font_small,
-                fg="#ffffff",
-                bg="#2c3e50",
-            )
-            self.end_time_label.pack(pady=10)
+            self.end_time_label.pack()
+            self.end_time_label.config(text=f"Giờ Kết Thúc: {end_time}")
 
         else:
             # Thời gian không hợp lệ, hiển thị cảnh báo
@@ -688,12 +688,15 @@ class CameraApp(tk.Tk):
             if str(hocSinh.Id).strip() not in list_id_checkin:
                 text = f"Bạn: {hocSinh.HoTen} ID: {hocSinh.Id} vắng"
                 print(text)
-                self.send_telegram_message(text)
+                threading.Thread(
+                    target=self.send_telegram_message, args=(
+                        text,), daemon=True
+                ).start()
 
     def checkSoLuong(self, soluongface, frame):
         list_checkin = self.checkin_dal.get()
         if soluongface != len(list_checkin):
-            text = f'Số lượng checkin không khớp checkout: {soluongface}/{len(list_checkin}'
+            text = f'Số lượng checkin không khớp checkout: {soluongface}/{len(list_checkin)}'
             threading.Thread(target=self.send_telegram_message,
                              args=(text,)).start()
             threading.Thread(target=self.send_telegram_photo,
@@ -724,7 +727,10 @@ class CameraApp(tk.Tk):
             if str(hocSinh.Id).strip() in id_chua_checkout:
                 text = f"Bạn: {hocSinh.HoTen} ID: {hocSinh.Id} chưa checkout"
                 print(text)
-                self.send_telegram_message(text)
+                threading.Thread(
+                    target=self.send_telegram_message, args=(
+                        text,), daemon=True
+                ).start()
 
         # Lưu khung hình cuối cùng vào biến self.latest_frame
         self.latest_frame = self.get_current_frame()
@@ -1314,11 +1320,17 @@ class CameraApp(tk.Tk):
                     self.frame_count_right = 0
                     self.update_fps_display(self.canvas_right, round(fps))
                 if self.modeYolo == "START":
-                    if len(class_ids) > 0:
+                    if len(class_ids) == 1:
                         text = f"Còn {len(class_ids)} học sinh trên xe"
                         print(text)
-                        self.send_telegram_message(text)
-                        self.send_telegram_photo(frame)
+                        threading.Thread(
+                            target=self.send_telegram_message, args=(
+                                text,), daemon=True
+                        ).start()
+                        threading.Thread(
+                            target=self.send_telegram_photo, args=(
+                                frame,), daemon=True
+                        ).start()
                         self.modeYolo = "END"
             else:
                 break
@@ -1347,11 +1359,17 @@ class CameraApp(tk.Tk):
                     self.frame_count_right = 0
                     self.update_fps_display(self.canvas_right, round(fps))
                 if self.modeYolo == "START":
-                    if len(class_ids) > 0:
+                    if len(class_ids) == 1:
                         text = f"Còn {len(class_ids)} học sinh trên xe"
                         print(text)
-                        self.send_telegram_message(text)
-                        self.send_telegram_photo(frame)
+                        threading.Thread(
+                            target=self.send_telegram_message, args=(
+                                text,), daemon=True
+                        ).start()
+                        threading.Thread(
+                            target=self.send_telegram_photo, args=(
+                                frame,), daemon=True
+                        ).start()
                         self.modeYolo = "END"
             else:
                 break
@@ -1429,8 +1447,14 @@ class CameraApp(tk.Tk):
         # Phát cảnh báo âm thanh và gửi thông báo trong thread riêng
         self.play_alert_sound()
         message = "Cảnh báo!: Có 1 học sinh đang bị bỏ quên trên xe."
-        self.send_telegram_message(message)
-        self.send_telegram_photo(frame)
+        threading.Thread(
+            target=self.send_telegram_message, args=(
+                message,), daemon=True
+        ).start()
+        threading.Thread(
+            target=self.send_telegram_photo, args=(
+                frame,), daemon=True
+        ).start()
 
     def play_alert_sound(self):
         pygame.mixer.music.load("Alarm/alarm.wav")
@@ -1455,8 +1479,14 @@ class CameraApp(tk.Tk):
 
     def send_telegram_alert(self, frame):
         message = "Cảnh báo!: Có 1 học sinh đang bị bỏ quên trên xe."
-        self.send_telegram_message(message)
-        self.send_telegram_photo(frame)
+        threading.Thread(
+            target=self.send_telegram_message, args=(
+                message,), daemon=True
+        ).start()
+        threading.Thread(
+            target=self.send_telegram_photo, args=(
+                frame,), daemon=True
+        ).start()
 
     def send_telegram_photo(self, frame):
         _, img_encoded = cv2.imencode(".jpg", frame)
