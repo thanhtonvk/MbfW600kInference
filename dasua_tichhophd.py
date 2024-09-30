@@ -693,7 +693,7 @@ class CameraApp(tk.Tk):
     def checkSoLuong(self, soluongface, frame):
         list_checkin = self.checkin_dal.get()
         if soluongface != len(list_checkin):
-            text = 'Số lượng checkin không khớp checkout'
+            text = f'Số lượng checkin không khớp checkout: {soluongface}/{len(list_checkin}'
             threading.Thread(target=self.send_telegram_message,
                              args=(text,)).start()
             threading.Thread(target=self.send_telegram_photo,
