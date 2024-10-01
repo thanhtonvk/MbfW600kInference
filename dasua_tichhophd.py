@@ -527,7 +527,7 @@ class CameraApp(tk.Tk):
         self.liveness_detection = LivenessDetection()
         self.mode = "NONE"
         self.startDem = ""
-
+        self.endDem = ""
         self.start_count_hs = False
 
     def update_clock(self):
