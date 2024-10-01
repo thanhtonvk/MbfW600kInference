@@ -10,4 +10,10 @@ def dem_sl_face(
 ):
     predictions =model.get(
         np_image, threshold=confidence_threshold, input_size=(640, 640))
-    return len(predictions)
+    bboxes = []
+    if len(predictions) != 0:
+        for _, face in enumerate(predictions):
+            bbox = face["bbox"]
+            bbox = list(map(int, bbox))
+            bboxes.append(bbox)
+    return bboxes

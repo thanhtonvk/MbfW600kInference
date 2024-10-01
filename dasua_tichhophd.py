@@ -692,10 +692,14 @@ class CameraApp(tk.Tk):
                         text,), daemon=True
                 ).start()
 
-    def checkSoLuong(self, soluongface, frame):
+    def checkSoLuong(self, boxes, frame):
         list_checkin = self.checkin_dal.get()
+        soluongface = len(boxes)
         if soluongface != len(list_checkin):
             text = f'Số lượng checkin không khớp checkout: {soluongface}/{len(list_checkin)}'
+            for box in boxes:
+                x_min, y_min, x_max, y_max = box
+                cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
             threading.Thread(target=self.send_telegram_message,
                              args=(text,)).start()
             threading.Thread(target=self.send_telegram_photo,
@@ -898,25 +902,25 @@ class CameraApp(tk.Tk):
                         audio_thread.start()
                     count_chup_anh += 1
                     if count_chup_anh == 25:
-                        slHs = dem_sl_face(frame)
-                        print('so luong hoc sinh lan 1', slHs)
-                        self.checkSoLuong(slHs, frame)
+                        boxes = dem_sl_face(frame)
+                        print('so luong hoc sinh lan 1', len(boxes))
+                        self.checkSoLuong(boxes, frame)
                     if count_chup_anh == 35:
-                        slHs = dem_sl_face(frame)
-                        print('so luong hoc sinh lan 2', slHs)
-                        self.checkSoLuong(slHs, frame)
+                        boxes = dem_sl_face(frame)
+                        print('so luong hoc sinh lan 2', len(boxes))
+                        self.checkSoLuong(boxes, frame)
                     if count_chup_anh == 45:
-                        slHs = dem_sl_face(frame)
-                        print('so luong hoc sinh lan 3', slHs)
-                        self.checkSoLuong(slHs, frame)
+                        boxes = dem_sl_face(frame)
+                        print('so luong hoc sinh lan 3', len(boxes))
+                        self.checkSoLuong(boxes, frame)
                     if count_chup_anh == 55:
-                        slHs = dem_sl_face(frame)
-                        print('so luong hoc sinh lan 4', slHs)
-                        self.checkSoLuong(slHs, frame)
+                        boxes = dem_sl_face(frame)
+                        print('so luong hoc sinh lan 4', len(boxes))
+                        self.checkSoLuong(boxes, frame)
                     if count_chup_anh == 65:
-                        slHs = dem_sl_face(frame)
-                        print('so luong hoc sinh lan 5', slHs)
-                        self.checkSoLuong(slHs, frame)
+                        boxes = dem_sl_face(frame)
+                        print('so luong hoc sinh lan 5', len(boxes))
+                        self.checkSoLuong(boxes, frame)
                         self.start_count_hs = False
                         count_chup_anh = 0
                 count_gia_mao += 1
@@ -1106,25 +1110,25 @@ class CameraApp(tk.Tk):
                         audio_thread.start()
                     count_chup_anh += 1
                     if count_chup_anh == 25:
-                        slHs = dem_sl_face(frame)
-                        print('so luong hoc sinh lan 1', slHs)
-                        self.checkSoLuong(slHs, frame)
+                        boxes = dem_sl_face(frame)
+                        print('so luong hoc sinh lan 1', len(boxes))
+                        self.checkSoLuong(boxes, frame)
                     if count_chup_anh == 35:
-                        slHs = dem_sl_face(frame)
-                        print('so luong hoc sinh lan 2', slHs)
-                        self.checkSoLuong(slHs, frame)
+                        boxes = dem_sl_face(frame)
+                        print('so luong hoc sinh lan 2', len(boxes))
+                        self.checkSoLuong(boxes, frame)
                     if count_chup_anh == 45:
-                        slHs = dem_sl_face(frame)
-                        print('so luong hoc sinh lan 3', slHs)
-                        self.checkSoLuong(slHs, frame)
+                        boxes = dem_sl_face(frame)
+                        print('so luong hoc sinh lan 3', len(boxes))
+                        self.checkSoLuong(boxes, frame)
                     if count_chup_anh == 55:
-                        slHs = dem_sl_face(frame)
-                        print('so luong hoc sinh lan 4', slHs)
-                        self.checkSoLuong(slHs, frame)
+                        boxes = dem_sl_face(frame)
+                        print('so luong hoc sinh lan 4', len(boxes))
+                        self.checkSoLuong(boxes, frame)
                     if count_chup_anh == 65:
-                        slHs = dem_sl_face(frame)
-                        print('so luong hoc sinh lan 5', slHs)
-                        self.checkSoLuong(slHs, frame)
+                        boxes = dem_sl_face(frame)
+                        print('so luong hoc sinh lan 5', len(boxes))
+                        self.checkSoLuong(boxes, frame)
                         self.start_count_hs = False
                         count_chup_anh = 0
                 count_gia_mao += 1
@@ -1319,7 +1323,7 @@ class CameraApp(tk.Tk):
                     self.frame_count_right = 0
                     self.update_fps_display(self.canvas_right, round(fps))
                 if self.modeYolo == "START":
-                    if len(class_ids) == 1:
+                    if len(class_ids) == 1 and self.mode = "END_CHECKOUT":
                         text = f"Còn {len(class_ids)} học sinh trên xe"
                         print(text)
                         threading.Thread(
@@ -1358,7 +1362,7 @@ class CameraApp(tk.Tk):
                     self.frame_count_right = 0
                     self.update_fps_display(self.canvas_right, round(fps))
                 if self.modeYolo == "START":
-                    if len(class_ids) == 1:
+                    if len(class_ids) == 1 and self.mode = "END_CHECKOUT":
                         text = f"Còn {len(class_ids)} học sinh trên xe"
                         print(text)
                         threading.Thread(
