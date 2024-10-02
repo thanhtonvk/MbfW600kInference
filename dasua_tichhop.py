@@ -1324,7 +1324,7 @@ class CameraApp(tk.Tk):
                     self.frame_count_right = 0
                     self.update_fps_display(self.canvas_right, round(fps))
                 if self.modeYolo == "START":
-                    if len(class_ids) == 1 and self.mode = "END_CHECKOUT":
+                    if len(class_ids) == 1 and self.mode == "END_CHECKOUT":
                         text = f"Còn {len(class_ids)} học sinh trên xe"
                         print(text)
                         threading.Thread(
@@ -1363,7 +1363,7 @@ class CameraApp(tk.Tk):
                     self.frame_count_right = 0
                     self.update_fps_display(self.canvas_right, round(fps))
                 if self.modeYolo == "START":
-                    if len(class_ids) == 1 and self.mode = "END_CHECKOUT":
+                    if len(class_ids) == 1 and self.mode == "END_CHECKOUT":
                         text = f"Còn {len(class_ids)} học sinh trên xe"
                         print(text)
                         threading.Thread(
@@ -1461,21 +1461,24 @@ class CameraApp(tk.Tk):
         ).start()
 
     def play_alert_sound(self):
-        pygame.mixer.music.load("Alarm/alarm.wav")
-        pygame.mixer.music.play()
-        pygame.time.set_timer(pygame.USEREVENT, 3000)
+        if not pygame.mixer.music.get_busy():
+            pygame.mixer.music.load("Alarm/alarm.wav")
+            pygame.mixer.music.play()
+            pygame.time.set_timer(pygame.USEREVENT, 3000)
 
     def play_thanh_cong(self):
-        pygame.mixer.music.load("Alarm/Điểm danh thành công.mp3")
-        pygame.mixer.music.play()
-        pygame.time.set_timer(pygame.USEREVENT, 3000)
+        if not pygame.mixer.music.get_busy():
+            pygame.mixer.music.load("Alarm/Điểm danh thành công.mp3")
+            pygame.mixer.music.play()
+            pygame.time.set_timer(pygame.USEREVENT, 3000)
 
     def play_that_bai(self):
-        pygame.mixer.music.load(
-            "Alarm/Không thể nhận diện, vui lòng thử lại.mp3")
-        pygame.mixer.music.play()
-        print("play canh bao ")
-        pygame.time.set_timer(pygame.USEREVENT, 3000)
+        if not pygame.mixer.music.get_busy():
+            pygame.mixer.music.load(
+                "Alarm/Không thể nhận diện, vui lòng thử lại.mp3")
+            pygame.mixer.music.play()
+            print("play canh bao ")
+            pygame.time.set_timer(pygame.USEREVENT, 3000)
 
     def send_telegram_message(self, message):
         data = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
@@ -1499,10 +1502,11 @@ class CameraApp(tk.Tk):
         requests.post(TELEGRAM_PHOTO_URL, data=data, files=files)
 
     def play_gia_mao(self):
-        pygame.mixer.music.load("Alarm/giamao.mp3")
-        pygame.mixer.music.play()
-        print("play canh bao ")
-        pygame.time.set_timer(pygame.USEREVENT, 3000)
+        if not pygame.mixer.music.get_busy():
+            pygame.mixer.music.load("Alarm/giamao.mp3")
+            pygame.mixer.music.play()
+            print("play canh bao ")
+            pygame.time.set_timer(pygame.USEREVENT, 3000)
 
     def display_frame_thread_safe(self, frame, canvas, points, polygons):
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
