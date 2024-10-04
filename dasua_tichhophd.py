@@ -175,7 +175,7 @@ class CameraApp(tk.Tk):
 
         # Thêm bảng hiển thị giờ bắt đầu và kết thúc
         self.time_frame = tk.Frame(self, bg="#2c3e50")
-        self.time_frame.place(x=1000, y=0, width=200, height=90)
+        self.time_frame.place(x=1000, y=10, width=200, height=90)
         self.start_time_label = tk.Label(
             self.time_frame,
             text="Giờ Bắt Đầu: --:--:--",
