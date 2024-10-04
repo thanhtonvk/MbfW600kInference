@@ -699,7 +699,7 @@ class CameraApp(tk.Tk):
             text = f'Số lượng checkin không khớp checkout: {soluongface}/{len(list_checkin)}'
             for box in boxes:
                 x_min, y_min, x_max, y_max = box
-                cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+                cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
             threading.Thread(target=self.send_telegram_message,
                              args=(text,)).start()
             threading.Thread(target=self.send_telegram_photo,
@@ -1447,20 +1447,21 @@ class CameraApp(tk.Tk):
         return (check1 == check2) and (check2 == check3) and (check3 == check4)
 
     def alert(self, frame):
-        # Phát cảnh báo âm thanh và gửi thông báo trong thread riêng
-        self.play_alert_sound()
-        message = "Cảnh báo!: Có 1 học sinh đang bị bỏ quên trên xe."
-        threading.Thread(
-            target=self.send_telegram_message, args=(
-                message,), daemon=True
-        ).start()
-        threading.Thread(
-            target=self.send_telegram_photo, args=(
-                frame,), daemon=True
-        ).start()
+        if self.mode == "END_CHECKOUT":
+            # Phát cảnh báo âm thanh và gửi thông báo trong thread riêng
+            self.play_alert_sound()
+            message = "Cảnh báo!: Có 1 học sinh đang bị bỏ quên trên xe."
+            threading.Thread(
+                target=self.send_telegram_message, args=(
+                    message,), daemon=True
+            ).start()
+            threading.Thread(
+                target=self.send_telegram_photo, args=(
+                    frame,), daemon=True
+            ).start()
 
     def play_alert_sound(self):
-        if not pygame.mixer.music.get_busy():
+        if not pygame.mixer.music.get_busy() and self.mode == "END_CHECKOUT":
             pygame.mixer.music.load("Alarm/alarm.wav")
             pygame.mixer.music.play()
             pygame.time.set_timer(pygame.USEREVENT, 3000)
@@ -1484,15 +1485,16 @@ class CameraApp(tk.Tk):
         requests.post(TELEGRAM_API_URL, data=data)
 
     def send_telegram_alert(self, frame):
-        message = "Cảnh báo!: Có 1 học sinh đang bị bỏ quên trên xe."
-        threading.Thread(
-            target=self.send_telegram_message, args=(
-                message,), daemon=True
-        ).start()
-        threading.Thread(
-            target=self.send_telegram_photo, args=(
-                frame,), daemon=True
-        ).start()
+        if self.mode == "END_CHECKOUT":
+            message = "Cảnh báo!: Có 1 học sinh đang bị bỏ quên trên xe."
+            threading.Thread(
+                target=self.send_telegram_message, args=(
+                    message,), daemon=True
+            ).start()
+            threading.Thread(
+                target=self.send_telegram_photo, args=(
+                    frame,), daemon=True
+            ).start()
 
     def send_telegram_photo(self, frame):
         _, img_encoded = cv2.imencode(".jpg", frame)
