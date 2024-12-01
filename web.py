@@ -5,6 +5,7 @@ import cv2
 from dal.NguoiDungDalSqlite import NguoiDungDal
 from modules.face_detection import FaceDetection
 from modules.face_recognition import FaceRecognition
+from modules.QRDetector import tao_qr
 app = Flask(__name__)
 
 NguoiDungDal = NguoiDungDal()
@@ -32,6 +33,7 @@ def them_sv():
         image_face = cv2.imread(f"static/faces/{id}/face.png")
         emb = faceRecognition.get_embed(image_face)
         NguoiDungDal.insert(ho_ten, id,emb)
+        tao_qr(str(id))
         return redirect('/') 
     return render_template('them_nguoi_dung.html')
 

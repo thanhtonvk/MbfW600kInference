@@ -1,7 +1,7 @@
 import sqlite3
 from objects.Checkin import Checkin
 from config import config
-import datetime
+from datetime import datetime
 
 
 class CheckinDal:
@@ -9,7 +9,8 @@ class CheckinDal:
         pass
 
     def get(self):
-        currentDate = str(datetime.datetime.now()).split(' ')
+        current_datetime = datetime.now()
+        currentDate = current_datetime.strftime("%Y-%m-%d %H:%M:%S").split(" ")
         ngayHienTai = currentDate[0]
         list_objects = []
         try:
@@ -38,46 +39,67 @@ class CheckinDal:
             conn.close()
             return True
         except Exception as e:
-            print('err ', e)
+            print("err ", e)
             return False
 
     def checkIn(self, checkIn: Checkin):
         list_checkin = self.get()
-        exist = [i for i in list_checkin if str(i.IdNguoiDung).strip() == str(checkIn.IdNguoiDung).strip()]
+        exist = [
+            i
+            for i in list_checkin
+            if str(i.IdNguoiDung).strip() == str(checkIn.IdNguoiDung).strip()
+        ]
         if len(exist) == 0:
-            currentDate = str(datetime.datetime.now()).split(' ')
+            current_datetime = datetime.now()
+            currentDate = current_datetime.strftime("%Y-%m-%d %H:%M:%S").split(" ")
+
             ngayHienTai = currentDate[0]
             gioHienTai = currentDate[1]
             checkIn.Ngay = ngayHienTai
             checkIn.GioCheckin = gioHienTai
-            checkIn.GioCheckout = ''
+            checkIn.GioCheckout = ""
             try:
                 conn = sqlite3.connect(config.DATABASE)
                 conn.execute(
-                    "INSERT INTO CheckIn(IdNguoiDung,HoTen,Ngay,GioCheckin,GioCheckout) values(?,?,?,?,?)", (checkIn.IdNguoiDung, checkIn.HoTen, checkIn.Ngay, checkIn.GioCheckin, checkIn.GioCheckout))
+                    "INSERT INTO CheckIn(IdNguoiDung,HoTen,Ngay,GioCheckin,GioCheckout) values(?,?,?,?,?)",
+                    (
+                        checkIn.IdNguoiDung,
+                        checkIn.HoTen,
+                        checkIn.Ngay,
+                        checkIn.GioCheckin,
+                        checkIn.GioCheckout,
+                    ),
+                )
                 conn.commit()
                 conn.close()
                 return True
             except Exception as e:
-                print('err ', e)
+                print("err ", e)
                 return False
         return False
 
     def checkOut(self, idNguoiDung):
         list_checkin = self.get()
-        exist = [i for i in list_checkin if str(i.IdNguoiDung).strip() == str(idNguoiDung).strip() and i.GioCheckout=='']
-        if len(exist)>0:
-            currentDate = str(datetime.datetime.now()).split(' ')
+        exist = [
+            i
+            for i in list_checkin
+            if str(i.IdNguoiDung).strip() == str(idNguoiDung).strip()
+            and i.GioCheckout == ""
+        ]
+        if len(exist) > 0:
+            current_datetime = datetime.now()
+            currentDate = current_datetime.strftime("%Y-%m-%d %H:%M:%S").split(" ")
             gioHienTai = currentDate[1]
             try:
                 conn = sqlite3.connect(config.DATABASE)
                 conn.execute(
-                    "UPDATE CheckIn SET GioCheckout = ? where IdNguoiDung = ?", (gioHienTai, idNguoiDung))
+                    "UPDATE CheckIn SET GioCheckout = ? where IdNguoiDung = ?",
+                    (gioHienTai, idNguoiDung),
+                )
                 conn.commit()
                 conn.close()
                 return True
             except Exception as e:
-                print('err ', e)
+                print("err ", e)
                 return False
         return False
-

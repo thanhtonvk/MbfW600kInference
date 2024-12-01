@@ -34,6 +34,7 @@
                     <th scope="col">ID</th>
                     <th scope="col">Họ tên</th>
                     <th scope="col">Hình ảnh</th>
+                    <th scope="col">QR</th>
                     <th scope="col">Tùy chọn</th>
                 </tr>
             </thead>
@@ -46,6 +47,11 @@
                     <td>
                        
                         <img src="{{ url_for('static', filename='faces/' + NguoiDung.Id|string + '/face.png') }}">
+
+                    </td>
+                    <td>
+                       
+                        <img src="{{ url_for('static', filename='qrs/' + NguoiDung.Id|string + '/qr.png') }}">
 
                     </td>
                     <td>

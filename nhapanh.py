@@ -9,7 +9,7 @@ from PIL import Image, ImageTk
 from dal.NguoiDungDalSqlite import NguoiDungDal
 from modules.face_detection import FaceDetection
 from modules.face_recognition import FaceRecognition
-
+from modules.QRDetector import tao_qr
 # Khởi tạo các đối tượng xử lý
 NguoiDungDal = NguoiDungDal()
 faceDetector = FaceDetection()
@@ -45,6 +45,7 @@ def upload_image():
             image_face = cv2.imread(image_face_path)
             emb = faceRecognition.get_embed(image_face)
             NguoiDungDal.insert(ho_ten, id_nguoi_dung, emb)
+            tao_qr(id_nguoi_dung)
             messagebox.showinfo("Thành công", "Đã thêm người dùng thành công")
         else:
             messagebox.showerror("Thất bại", "Không thể phát hiện khuôn mặt.")

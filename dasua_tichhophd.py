@@ -24,15 +24,59 @@ from modules.count_face import dem_sl_face
 import tkinter as tk
 from tkinter import Toplevel, messagebox
 from datetime import datetime, timedelta
+import pandas as pd
+from modules.QRDetector import tao_qr, doc_qr, search_person_qr
+
 # Initialize pygame for sound playback
 pygame.init()
 pygame.mixer.init()
+import os
 
 # Telegram bot configuration
 TELEGRAM_BOT_TOKEN = "7233650823:AAGr1Cmpr56o4NBdJFyloFUDfltqjnA1dwA"
 TELEGRAM_CHAT_ID = "7131930827"
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
 TELEGRAM_PHOTO_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
+
+
+def exportExcel(list_check, mode):
+    os.makedirs(mode, exist_ok=True)
+    if mode == "checkin":
+        ids = []
+        hotens = []
+        ngays = []
+        giocheckins = []
+        for object in list_check:
+            ids.append(object.IdNguoiDung)
+            hotens.append(object.HoTen)
+            ngays.append(object.Ngay)
+            giocheckins.append(object.GioCheckin)
+        data = {"ID": ids, "HO TEN": hotens, "NGAY": ngays, "GIO CHECK IN": giocheckins}
+    else:
+        ids = []
+        hotens = []
+        ngays = []
+        gioCheckouts = []
+        for object in list_check:
+            if object.GioCheckout:
+                ids.append(object.IdNguoiDung)
+                hotens.append(object.HoTen)
+                ngays.append(object.Ngay)
+                gioCheckouts.append(object.GioCheckout)
+        data = {
+            "ID": ids,
+            "HO TEN": hotens,
+            "NGAY": ngays,
+            "GIO CHECK OUT": gioCheckouts,
+        }
+    df = pd.DataFrame(data)
+    current_datetime = datetime.now()
+    file_path = mode + "/" + current_datetime.strftime("%Y_%m_%d_%H_%M_%S") + ".csv"
+    df.to_csv(file_path)
+    if os.name == "nt":  # Check if the OS is Windows
+        os.system(f'start excel "{file_path}"')
+    else:
+        os.system(f'open "{file_path}"')
 
 
 def get_max(boxes):
@@ -84,8 +128,7 @@ class ObjectDetection:
                     if xyxy.size == 4:
                         x1, y1, x2, y2 = map(int, xyxy)
                         label = f"{self.CLASS_NAMES_DICT[class_id]} {int(confidence * 100)}%"
-                        cv2.rectangle(frame, (x1, y1),
-                                      (x2, y2), (255, 0, 0), 2)
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
                         cv2.putText(
                             frame,
                             label,
@@ -97,8 +140,7 @@ class ObjectDetection:
                         )
                         x_center = (x1 + x2) // 2
                         y_center = (y1 + y2) // 2
-                        cv2.circle(frame, (x_center, y_center),
-                                   5, (0, 0, 255), -1)
+                        cv2.circle(frame, (x_center, y_center), 5, (0, 0, 255), -1)
         return frame, xyxys, confidences, class_ids
 
 
@@ -147,8 +189,7 @@ class CameraApp(tk.Tk):
 
         # Add logo at the top left
         self.logo_image = Image.open("logo.png")
-        self.logo_image = self.logo_image.resize(
-            (70, 70), Image.Resampling.LANCZOS)
+        self.logo_image = self.logo_image.resize((70, 70), Image.Resampling.LANCZOS)
         self.logo_photo = ImageTk.PhotoImage(self.logo_image)
         self.logo_label = tk.Label(self, image=self.logo_photo, bg="#2c3e50")
         self.logo_label.place(x=20, y=10)
@@ -209,6 +250,26 @@ class CameraApp(tk.Tk):
             bg="#2c3e50",
         )
         self.end_time_count.pack(pady=1)
+
+        self.count_frame = tk.Frame(self, bg="#2c3e50")
+        self.count_frame.place(x=120, y=40, width=160, height=50)
+        self.so_luong_check_in = tk.Label(
+            self.count_frame,
+            text="Số lượng đã checkin : ",
+            font=self.font_small,
+            fg="#ffffff",
+            bg="#2c3e50",
+        )
+        self.so_luong_check_in.pack(pady=1)
+
+        self.so_luong_check_out = tk.Label(
+            self.count_frame,
+            text="Số lượng đã checkout : ",
+            font=self.font_small,
+            fg="#ffffff",
+            bg="#2c3e50",
+        )
+        self.so_luong_check_out.pack(pady=1)
 
         # Khởi tạo các đối tượng cho nhận diện khuôn mặt và nhận diện đối tượng
         self.face_detector = FaceDetection()
@@ -541,19 +602,21 @@ class CameraApp(tk.Tk):
         self.timer_window.title("Hẹn Giờ")
 
         self.start_temp = tk.Label(
-            self.timer_window, text="Thời gian đếm HS checkin (HH:MM:SS):", font=("Helvetica", 14)
+            self.timer_window,
+            text="Thời gian đếm HS checkin (HH:MM:SS):",
+            font=("Helvetica", 14),
         )
         self.start_temp.pack(pady=10)
-        self.start_temp_entry = tk.Entry(
-            self.timer_window, font=("Helvetica", 14))
+        self.start_temp_entry = tk.Entry(self.timer_window, font=("Helvetica", 14))
         self.start_temp_entry.pack(pady=10)
 
         self.end_temp = tk.Label(
-            self.timer_window, text="Thời gian đếm HS checkout (HH:MM:SS):", font=("Helvetica", 14)
+            self.timer_window,
+            text="Thời gian đếm HS checkout (HH:MM:SS):",
+            font=("Helvetica", 14),
         )
         self.end_temp.pack(pady=10)
-        self.end_temp_entry = tk.Entry(
-            self.timer_window, font=("Helvetica", 14))
+        self.end_temp_entry = tk.Entry(self.timer_window, font=("Helvetica", 14))
         self.end_temp_entry.pack(pady=10)
 
         # Nút để xác nhận đặt giờ
@@ -567,7 +630,7 @@ class CameraApp(tk.Tk):
 
     def is_valid_time_format(self, time_str):
         try:
-            time.strptime(time_str, '%H:%M:%S')
+            time.strptime(time_str, "%H:%M:%S")
             return True
         except ValueError:
             return False
@@ -576,7 +639,9 @@ class CameraApp(tk.Tk):
         start_time = self.start_temp_entry.get()
         end_time = self.end_temp_entry.get()
 
-        if self.is_valid_time_format(start_time) and self.is_valid_time_format(end_time):
+        if self.is_valid_time_format(start_time) and self.is_valid_time_format(
+            end_time
+        ):
             print(start_time)
             self.timer_window.withdraw()  # Ẩn cửa sổ hẹn giờ
             tk.messagebox.showinfo("Thành công", "Hẹn giờ thành công!")
@@ -610,8 +675,7 @@ class CameraApp(tk.Tk):
             self.timer_window, text="Thời gian bắt đầu:", font=("Helvetica", 14)
         )
         self.start_temp.pack(pady=10)
-        self.start_time_entry = tk.Entry(
-            self.timer_window, font=("Helvetica", 14))
+        self.start_time_entry = tk.Entry(self.timer_window, font=("Helvetica", 14))
         self.start_time_entry.pack(pady=10)
 
         # Nhãn và ô nhập cho thời gian kết thúc điểm danh
@@ -619,8 +683,7 @@ class CameraApp(tk.Tk):
             self.timer_window, text="Thời gian kết thúc:", font=("Helvetica", 14)
         )
         self.end_temp.pack(pady=10)
-        self.end_time_entry = tk.Entry(
-            self.timer_window, font=("Helvetica", 14))
+        self.end_time_entry = tk.Entry(self.timer_window, font=("Helvetica", 14))
         self.end_time_entry.pack(pady=10)
 
         # Nút để xác nhận đặt giờ
@@ -643,8 +706,7 @@ class CameraApp(tk.Tk):
 
             # Bắt đầu theo dõi thời gian và thực hiện check-in/check-out khi đến giờ
             threading.Thread(
-                target=self.check_timer, args=(
-                    start_time, end_time), daemon=True
+                target=self.check_timer, args=(start_time, end_time), daemon=True
             ).start()
             tk.messagebox.showinfo("Thành công", "Hẹn giờ thành công!")
 
@@ -678,32 +740,29 @@ class CameraApp(tk.Tk):
 
     def endCheckin(self):
         self.mode = "NONE"
-        self.end_time_label.config(
-            text=f"Giờ Kết Thúc: {time.strftime('%H:%M:%S')}")
+        self.end_time_label.config(text=f"Giờ Kết Thúc: {time.strftime('%H:%M:%S')}")
         list_hoc_sinh = self.nguoi_dung_dal.get()
         list_checkin = self.checkin_dal.get()
         list_id_checkin = [str(i.IdNguoiDung).strip() for i in list_checkin]
+        exportExcel(list_checkin, "checkin")
         for hocSinh in list_hoc_sinh:
             if str(hocSinh.Id).strip() not in list_id_checkin:
                 text = f"Bạn: {hocSinh.HoTen} ID: {hocSinh.Id} vắng"
                 print(text)
                 threading.Thread(
-                    target=self.send_telegram_message, args=(
-                        text,), daemon=True
+                    target=self.send_telegram_message, args=(text,), daemon=True
                 ).start()
 
     def checkSoLuong(self, boxes, frame):
         list_checkin = self.checkin_dal.get()
         soluongface = len(boxes)
         if soluongface != len(list_checkin):
-            text = f'Số lượng checkin không khớp checkout: {soluongface}/{len(list_checkin)}'
+            text = f"Số lượng checkin không khớp checkout: {soluongface}/{len(list_checkin)}"
             for box in boxes:
                 x_min, y_min, x_max, y_max = box
                 cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
-            threading.Thread(target=self.send_telegram_message,
-                             args=(text,)).start()
-            threading.Thread(target=self.send_telegram_photo,
-                             args=(frame,)).start()
+            threading.Thread(target=self.send_telegram_message, args=(text,)).start()
+            threading.Thread(target=self.send_telegram_photo, args=(frame,)).start()
 
     def get_list_chua_checkout(self):
         list_hoc_sinh = self.nguoi_dung_dal.get()
@@ -718,11 +777,12 @@ class CameraApp(tk.Tk):
 
     def endCheckout(self):
         self.mode = "END_CHECKOUT"  # Cập nhật trạng thái mode sau khi kết thúc checkout
-        self.end_time_label.config(
-            text=f"Giờ Kết Thúc: {time.strftime('%H:%M:%S')}")
+        self.end_time_label.config(text=f"Giờ Kết Thúc: {time.strftime('%H:%M:%S')}")
 
         list_hoc_sinh = self.nguoi_dung_dal.get()
         list_checkin = self.checkin_dal.get()
+        exportExcel(list_checkin, "checkout")
+
         id_chua_checkout = [
             str(i.IdNguoiDung).strip() for i in list_checkin if i.GioCheckout == ""
         ]
@@ -731,8 +791,7 @@ class CameraApp(tk.Tk):
                 text = f"Bạn: {hocSinh.HoTen} ID: {hocSinh.Id} chưa checkout"
                 print(text)
                 threading.Thread(
-                    target=self.send_telegram_message, args=(
-                        text,), daemon=True
+                    target=self.send_telegram_message, args=(text,), daemon=True
                 ).start()
 
         # Lưu khung hình cuối cùng vào biến self.latest_frame
@@ -743,9 +802,12 @@ class CameraApp(tk.Tk):
 
     def start_alert_check(self):
         # Gọi lại quá trình phát hiện đối tượng trên khung hình cuối cùng
-        if self.mode == "END_CHECKOUT":  # Chỉ kích hoạt cảnh báo sau khi kết thúc checkout
+        if (
+            self.mode == "END_CHECKOUT"
+        ):  # Chỉ kích hoạt cảnh báo sau khi kết thúc checkout
             frame, xyxys, confidences, class_ids = self.object_detection.detect_objects(
-                self.latest_frame)
+                self.latest_frame
+            )
 
             # Thực hiện kiểm tra lại cảnh báo với các tham số đã lấy được
             self.re_check_alert(xyxys, confidences, class_ids, frame)
@@ -758,9 +820,11 @@ class CameraApp(tk.Tk):
                 x1, y1, x2, y2 = map(int, xyxy)
                 x_center = (x1 + x2) // 2
                 y_center = (y1 + y2) // 2
-                if self.is_point_in_quadrilateral(x_center, y_center, self.polygons_right[1]):
+                if self.is_point_in_quadrilateral(
+                    x_center, y_center, self.polygons_right[1]
+                ):
                     count_detect += 1
-                    print('count detect ', count_detect)
+                    print("count detect ", count_detect)
 
         for i, polygon in enumerate(self.polygons_right):
             for xyxy, confidence, class_id in zip(xyxys, confidences, class_ids):
@@ -771,21 +835,19 @@ class CameraApp(tk.Tk):
                 y_center = (y1 + y2) // 2
                 if self.is_point_in_quadrilateral(x_center, y_center, polygon):
                     check_another_polygons = False
-                    print('check another ', check_another_polygons)
+                    print("check another ", check_another_polygons)
 
         if count_detect == 1 and check_another_polygons:
             threading.Timer(
                 1, self.send_telegram_message, args=["Vẫn còn học sinh trên xe"]
             ).start()
-            threading.Timer(
-                1, self.send_telegram_photo, args=[frame]
-            ).start()
+            threading.Timer(1, self.send_telegram_photo, args=[frame]).start()
             self.canh_bao_lien_tuc = True
-            print('Bật Cảnh báo liên tục')
+            print("Bật Cảnh báo liên tục")
 
     def get_current_frame(self):
         # Lấy khung hình hiện tại từ video bên phải
-        ret, frame = self.cap_right.read()
+        ret, frame = self.cap_left.read()
         if ret:
             frame = cv2.resize(frame, (680, 480))
         return frame
@@ -841,8 +903,7 @@ class CameraApp(tk.Tk):
                 self.running_right = False
                 time.sleep(1)  # Wait for the previous thread to close
             threading.Thread(
-                target=self.process_video_right, args=(
-                    video_path,), daemon=True
+                target=self.process_video_right, args=(video_path,), daemon=True
             ).start()
 
     def connect_camera_right(self):
@@ -895,31 +956,33 @@ class CameraApp(tk.Tk):
                 ret, frame = self.cap_left.read()
             if ret:
                 self.check_chup_anh()
+
                 if self.start_count_hs:
                     if count_chup_anh == 0:
                         audio_thread = threading.Thread(
-                            target=play_audio, args=("audio/chu-y.mp3",))
+                            target=play_audio, args=("audio/chu-y.mp3",)
+                        )
                         audio_thread.start()
                     count_chup_anh += 1
                     if count_chup_anh == 25:
                         boxes = dem_sl_face(frame)
-                        print('so luong hoc sinh lan 1', len(boxes))
+                        print("so luong hoc sinh lan 1", len(boxes))
                         self.checkSoLuong(boxes, frame)
                     if count_chup_anh == 35:
                         boxes = dem_sl_face(frame)
-                        print('so luong hoc sinh lan 2', len(boxes))
+                        print("so luong hoc sinh lan 2", len(boxes))
                         self.checkSoLuong(boxes, frame)
                     if count_chup_anh == 45:
                         boxes = dem_sl_face(frame)
-                        print('so luong hoc sinh lan 3', len(boxes))
+                        print("so luong hoc sinh lan 3", len(boxes))
                         self.checkSoLuong(boxes, frame)
                     if count_chup_anh == 55:
                         boxes = dem_sl_face(frame)
-                        print('so luong hoc sinh lan 4', len(boxes))
+                        print("so luong hoc sinh lan 4", len(boxes))
                         self.checkSoLuong(boxes, frame)
                     if count_chup_anh == 65:
                         boxes = dem_sl_face(frame)
-                        print('so luong hoc sinh lan 5', len(boxes))
+                        print("so luong hoc sinh lan 5", len(boxes))
                         self.checkSoLuong(boxes, frame)
                         self.start_count_hs = False
                         count_chup_anh = 0
@@ -948,6 +1011,71 @@ class CameraApp(tk.Tk):
                         cv2.LINE_AA,
                     )
 
+                data, vertices = doc_qr(frame)
+                if data:
+                    if vertices is not None:
+                        vertices = vertices[0]  # Lấy danh sách các điểm đỉnh
+                        x_min = int(vertices[:, 0].min())  # Tọa độ X nhỏ nhất
+                        y_min = int(vertices[:, 1].min())  # Tọa độ Y nhỏ nhất
+                        x_max = int(vertices[:, 0].max())  # Tọa độ X lớn nhất
+                        y_max = int(vertices[:, 1].max())  # Tọa độ Y lớn nhất
+                        # Vẽ bounding box trên ảnh
+                        cv2.rectangle(
+                            frame,
+                            (x_min, y_min),
+                            (x_max, y_max),
+                            color=(0, 255, 0),
+                            thickness=2,
+                        )
+
+                        nguoi_dung = search_person_qr(data, self.nguoi_dungs)
+
+                        if nguoi_dung is not None:
+                            cv2.putText(
+                                frame,
+                                f"ID:{nguoi_dung.Id} {unidecode(nguoi_dung.HoTen)}",
+                                (x_min, y_min),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                0.5,
+                                (0, 255, 255),
+                                1,
+                                cv2.LINE_AA,
+                            )
+                            if self.mode == "START_CHECKIN":
+                                checkIn = Checkin()
+                                checkIn.IdNguoiDung = nguoi_dung.Id
+                                checkIn.HoTen = nguoi_dung.HoTen
+                                is_success = self.checkin_dal.checkIn(checkIn)
+                                self.start_time_label.pack()
+                                len_check_in = len(
+                                    [
+                                        item
+                                        for item in self.checkin_dal.get()
+                                        if item.GioCheckin
+                                    ]
+                                )
+
+                                self.so_luong_check_in.config(
+                                    text=f"Số lượng đã checkin : {len_check_in}"
+                                )
+
+                                if is_success:
+                                    self.play_thanh_cong()
+                            if self.mode == "START_CHECKOUT":
+                                is_success = self.checkin_dal.checkOut(nguoi_dung.Id)
+                                len_check_out = len(
+                                    [
+                                        item
+                                        for item in self.checkin_dal.get()
+                                        if item.GioCheckout
+                                    ]
+                                )
+                                self.so_luong_check_out.config(
+                                    text=f"Số lượng đã checkout : {len_check_out}"
+                                )
+                                if is_success:
+                                    self.play_thanh_cong()
+
                 predict_face = self.face_detector.detect(frame)
                 boxes = predict_face["boxes"]
                 faces = predict_face["faces"]
@@ -956,16 +1084,14 @@ class CameraApp(tk.Tk):
                     x, y, w, h = boxes[idx]
                     cv2.rectangle(frame, (x, y), (w, h), (0, 255, 0), 2)
                     face = faces[idx]
-                    score_live, is_live = self.liveness_detection.predict(
-                        image)
+                    score_live, is_live = self.liveness_detection.predict(image)
                     if is_live:
                         nguoi_dung = self.face_recognition.search_face(
                             face, self.nguoi_dungs
                         )
 
                         if nguoi_dung is not None:
-                            is_liveness = self.liveness_detection.predict(
-                                image)
+                            is_liveness = self.liveness_detection.predict(image)
                             if is_liveness:
                                 cv2.putText(
                                     frame,
@@ -981,13 +1107,35 @@ class CameraApp(tk.Tk):
                                     checkIn = Checkin()
                                     checkIn.IdNguoiDung = nguoi_dung.Id
                                     checkIn.HoTen = nguoi_dung.HoTen
-                                    is_success = self.checkin_dal.checkIn(
-                                        checkIn)
+                                    is_success = self.checkin_dal.checkIn(checkIn)
+                                    self.start_time_label.pack()
+                                    len_check_in = len(
+                                        [
+                                            item
+                                            for item in self.checkin_dal.get()
+                                            if item.GioCheckin
+                                        ]
+                                    )
+
+                                    self.so_luong_check_in.config(
+                                        text=f"Số lượng đã checkin : {len_check_in}"
+                                    )
+
                                     if is_success:
                                         self.play_thanh_cong()
                                 if self.mode == "START_CHECKOUT":
                                     is_success = self.checkin_dal.checkOut(
                                         nguoi_dung.Id
+                                    )
+                                    len_check_out = len(
+                                        [
+                                            item
+                                            for item in self.checkin_dal.get()
+                                            if item.GioCheckout
+                                        ]
+                                    )
+                                    self.so_luong_check_out.config(
+                                        text=f"Số lượng đã checkout : {len_check_out}"
                                     )
                                     if is_success:
                                         self.play_thanh_cong()
@@ -995,8 +1143,7 @@ class CameraApp(tk.Tk):
 
                                 if count_gia_mao % 30 == 0:
                                     t1 = threading.Thread(
-                                        target=self.send_telegram_photo, args=[
-                                            frame]
+                                        target=self.send_telegram_photo, args=[frame]
                                     )
                                     t1.start()
                                     t1 = threading.Thread(
@@ -1103,31 +1250,33 @@ class CameraApp(tk.Tk):
                 ret, frame = self.cap_left.read()
             if ret:
                 self.check_chup_anh()
+
                 if self.start_count_hs:
                     if count_chup_anh == 0:
                         audio_thread = threading.Thread(
-                            target=play_audio, args=("audio/chu-y.mp3",))
+                            target=play_audio, args=("audio/chu-y.mp3",)
+                        )
                         audio_thread.start()
                     count_chup_anh += 1
                     if count_chup_anh == 25:
                         boxes = dem_sl_face(frame)
-                        print('so luong hoc sinh lan 1', len(boxes))
+                        print("so luong hoc sinh lan 1", len(boxes))
                         self.checkSoLuong(boxes, frame)
                     if count_chup_anh == 35:
                         boxes = dem_sl_face(frame)
-                        print('so luong hoc sinh lan 2', len(boxes))
+                        print("so luong hoc sinh lan 2", len(boxes))
                         self.checkSoLuong(boxes, frame)
                     if count_chup_anh == 45:
                         boxes = dem_sl_face(frame)
-                        print('so luong hoc sinh lan 3', len(boxes))
+                        print("so luong hoc sinh lan 3", len(boxes))
                         self.checkSoLuong(boxes, frame)
                     if count_chup_anh == 55:
                         boxes = dem_sl_face(frame)
-                        print('so luong hoc sinh lan 4', len(boxes))
+                        print("so luong hoc sinh lan 4", len(boxes))
                         self.checkSoLuong(boxes, frame)
                     if count_chup_anh == 65:
                         boxes = dem_sl_face(frame)
-                        print('so luong hoc sinh lan 5', len(boxes))
+                        print("so luong hoc sinh lan 5", len(boxes))
                         self.checkSoLuong(boxes, frame)
                         self.start_count_hs = False
                         count_chup_anh = 0
@@ -1156,6 +1305,71 @@ class CameraApp(tk.Tk):
                         cv2.LINE_AA,
                     )
 
+                data, vertices = doc_qr(frame)
+                if data:
+                    if vertices is not None:
+                        vertices = vertices[0]  # Lấy danh sách các điểm đỉnh
+                        x_min = int(vertices[:, 0].min())  # Tọa độ X nhỏ nhất
+                        y_min = int(vertices[:, 1].min())  # Tọa độ Y nhỏ nhất
+                        x_max = int(vertices[:, 0].max())  # Tọa độ X lớn nhất
+                        y_max = int(vertices[:, 1].max())  # Tọa độ Y lớn nhất
+                        # Vẽ bounding box trên ảnh
+                        cv2.rectangle(
+                            frame,
+                            (x_min, y_min),
+                            (x_max, y_max),
+                            color=(0, 255, 0),
+                            thickness=2,
+                        )
+
+                        nguoi_dung = search_person_qr(data, self.nguoi_dungs)
+
+                        if nguoi_dung is not None:
+                            cv2.putText(
+                                frame,
+                                f"ID:{nguoi_dung.Id} {unidecode(nguoi_dung.HoTen)}",
+                                (x_min, y_min),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                0.5,
+                                (0, 255, 255),
+                                1,
+                                cv2.LINE_AA,
+                            )
+                            if self.mode == "START_CHECKIN":
+                                checkIn = Checkin()
+                                checkIn.IdNguoiDung = nguoi_dung.Id
+                                checkIn.HoTen = nguoi_dung.HoTen
+                                is_success = self.checkin_dal.checkIn(checkIn)
+                                self.start_time_label.pack()
+                                len_check_in = len(
+                                    [
+                                        item
+                                        for item in self.checkin_dal.get()
+                                        if item.GioCheckin
+                                    ]
+                                )
+
+                                self.so_luong_check_in.config(
+                                    text=f"Số lượng đã checkin : {len_check_in}"
+                                )
+
+                                if is_success:
+                                    self.play_thanh_cong()
+                            if self.mode == "START_CHECKOUT":
+                                is_success = self.checkin_dal.checkOut(nguoi_dung.Id)
+                                len_check_out = len(
+                                    [
+                                        item
+                                        for item in self.checkin_dal.get()
+                                        if item.GioCheckout
+                                    ]
+                                )
+                                self.so_luong_check_out.config(
+                                    text=f"Số lượng đã checkout : {len_check_out}"
+                                )
+                                if is_success:
+                                    self.play_thanh_cong()
+
                 predict_face = self.face_detector.detect(frame)
                 boxes = predict_face["boxes"]
                 faces = predict_face["faces"]
@@ -1164,16 +1378,14 @@ class CameraApp(tk.Tk):
                     x, y, w, h = boxes[idx]
                     cv2.rectangle(frame, (x, y), (w, h), (0, 255, 0), 2)
                     face = faces[idx]
-                    score_live, is_live = self.liveness_detection.predict(
-                        image)
+                    score_live, is_live = self.liveness_detection.predict(image)
                     if is_live:
                         nguoi_dung = self.face_recognition.search_face(
                             face, self.nguoi_dungs
                         )
 
                         if nguoi_dung is not None:
-                            is_liveness = self.liveness_detection.predict(
-                                image)
+                            is_liveness = self.liveness_detection.predict(image)
                             if is_liveness:
                                 cv2.putText(
                                     frame,
@@ -1189,13 +1401,35 @@ class CameraApp(tk.Tk):
                                     checkIn = Checkin()
                                     checkIn.IdNguoiDung = nguoi_dung.Id
                                     checkIn.HoTen = nguoi_dung.HoTen
-                                    is_success = self.checkin_dal.checkIn(
-                                        checkIn)
+                                    is_success = self.checkin_dal.checkIn(checkIn)
+                                    self.start_time_label.pack()
+                                    len_check_in = len(
+                                        [
+                                            item
+                                            for item in self.checkin_dal.get()
+                                            if item.GioCheckin
+                                        ]
+                                    )
+
+                                    self.so_luong_check_in.config(
+                                        text=f"Số lượng đã checkin : {len_check_in}"
+                                    )
+
                                     if is_success:
                                         self.play_thanh_cong()
                                 if self.mode == "START_CHECKOUT":
                                     is_success = self.checkin_dal.checkOut(
                                         nguoi_dung.Id
+                                    )
+                                    len_check_out = len(
+                                        [
+                                            item
+                                            for item in self.checkin_dal.get()
+                                            if item.GioCheckout
+                                        ]
+                                    )
+                                    self.so_luong_check_out.config(
+                                        text=f"Số lượng đã checkout : {len_check_out}"
                                     )
                                     if is_success:
                                         self.play_thanh_cong()
@@ -1203,8 +1437,7 @@ class CameraApp(tk.Tk):
 
                                 if count_gia_mao % 30 == 0:
                                     t1 = threading.Thread(
-                                        target=self.send_telegram_photo, args=[
-                                            frame]
+                                        target=self.send_telegram_photo, args=[frame]
                                     )
                                     t1.start()
                                     t1 = threading.Thread(
@@ -1283,7 +1516,6 @@ class CameraApp(tk.Tk):
                                 1,
                                 cv2.LINE_AA,
                             )
-
                 self.display_frame_thread_safe(
                     frame, self.canvas_left, self.points_left, self.polygons_left
                 )
@@ -1327,12 +1559,10 @@ class CameraApp(tk.Tk):
                         text = f"Còn {len(class_ids)} học sinh trên xe"
                         print(text)
                         threading.Thread(
-                            target=self.send_telegram_message, args=(
-                                text,), daemon=True
+                            target=self.send_telegram_message, args=(text,), daemon=True
                         ).start()
                         threading.Thread(
-                            target=self.send_telegram_photo, args=(
-                                frame,), daemon=True
+                            target=self.send_telegram_photo, args=(frame,), daemon=True
                         ).start()
                         self.modeYolo = "END"
             else:
@@ -1366,12 +1596,10 @@ class CameraApp(tk.Tk):
                         text = f"Còn {len(class_ids)} học sinh trên xe"
                         print(text)
                         threading.Thread(
-                            target=self.send_telegram_message, args=(
-                                text,), daemon=True
+                            target=self.send_telegram_message, args=(text,), daemon=True
                         ).start()
                         threading.Thread(
-                            target=self.send_telegram_photo, args=(
-                                frame,), daemon=True
+                            target=self.send_telegram_photo, args=(frame,), daemon=True
                         ).start()
                         self.modeYolo = "END"
             else:
@@ -1384,8 +1612,9 @@ class CameraApp(tk.Tk):
         threading.Thread(target=self.play_alert_sound, daemon=True).start()
 
         # Tạo luồng riêng để gửi tin nhắn và hình ảnh đến Telegram
-        threading.Thread(target=self.send_telegram_alert,
-                         args=(frame,), daemon=True).start()
+        threading.Thread(
+            target=self.send_telegram_alert, args=(frame,), daemon=True
+        ).start()
 
     def check_alert(self, xyxys, confidences, class_ids, frame):
         if not self.polygons_right:
@@ -1403,11 +1632,15 @@ class CameraApp(tk.Tk):
                     if self.is_point_in_polygon(point, polygon):
                         objects_in_polygons[i] += 1
 
-        if len(objects_in_polygons) > 0 and objects_in_polygons[0] == 1 and all(count == 0 for count in objects_in_polygons[1:]):
+        if (
+            len(objects_in_polygons) > 0
+            and objects_in_polygons[0] == 1
+            and all(count == 0 for count in objects_in_polygons[1:])
+        ):
             print(
-                "Cảnh báo: Chỉ còn 1 người trong đa giác 1, phát loa cảnh báo và gửi hình ảnh về Telegram")
-            threading.Thread(target=self.alert, args=(
-                frame,), daemon=True).start()
+                "Cảnh báo: Chỉ còn 1 người trong đa giác 1, phát loa cảnh báo và gửi hình ảnh về Telegram"
+            )
+            threading.Thread(target=self.alert, args=(frame,), daemon=True).start()
 
     def is_point_in_polygon(self, point, polygon):
         x, y = point
@@ -1421,8 +1654,7 @@ class CameraApp(tk.Tk):
                 if y <= max(p1y, p2y):
                     if x <= max(p1x, p2x):
                         if p1y != p2y:
-                            xinters = (y - p1y) * (p2x - p1x) / \
-                                (p2y - p1y) + p1x
+                            xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
                         if p1x == p2x or x <= xinters:
                             inside = not inside
             p1x, p1y = p2x, p2y
@@ -1452,12 +1684,10 @@ class CameraApp(tk.Tk):
             self.play_alert_sound()
             message = "Cảnh báo!: Có 1 học sinh đang bị bỏ quên trên xe."
             threading.Thread(
-                target=self.send_telegram_message, args=(
-                    message,), daemon=True
+                target=self.send_telegram_message, args=(message,), daemon=True
             ).start()
             threading.Thread(
-                target=self.send_telegram_photo, args=(
-                    frame,), daemon=True
+                target=self.send_telegram_photo, args=(frame,), daemon=True
             ).start()
 
     def play_alert_sound(self):
@@ -1474,8 +1704,7 @@ class CameraApp(tk.Tk):
 
     def play_that_bai(self):
         if not pygame.mixer.music.get_busy():
-            pygame.mixer.music.load(
-                "Alarm/Không thể nhận diện, vui lòng thử lại.mp3")
+            pygame.mixer.music.load("Alarm/Không thể nhận diện, vui lòng thử lại.mp3")
             pygame.mixer.music.play()
             print("play canh bao ")
             pygame.time.set_timer(pygame.USEREVENT, 3000)
@@ -1488,12 +1717,10 @@ class CameraApp(tk.Tk):
         if self.mode == "END_CHECKOUT":
             message = "Cảnh báo!: Có 1 học sinh đang bị bỏ quên trên xe."
             threading.Thread(
-                target=self.send_telegram_message, args=(
-                    message,), daemon=True
+                target=self.send_telegram_message, args=(message,), daemon=True
             ).start()
             threading.Thread(
-                target=self.send_telegram_photo, args=(
-                    frame,), daemon=True
+                target=self.send_telegram_photo, args=(frame,), daemon=True
             ).start()
 
     def send_telegram_photo(self, frame):
@@ -1512,8 +1739,7 @@ class CameraApp(tk.Tk):
     def display_frame_thread_safe(self, frame, canvas, points, polygons):
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        img = tk.PhotoImage(
-            master=canvas, data=cv2.imencode(".png", img)[1].tobytes())
+        img = tk.PhotoImage(master=canvas, data=cv2.imencode(".png", img)[1].tobytes())
         canvas.after(0, self.update_canvas, canvas, img, points, polygons)
 
     def update_canvas(self, canvas, img, points, polygons):
